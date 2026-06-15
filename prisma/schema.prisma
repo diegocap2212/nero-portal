@@ -8,8 +8,10 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // Nomes injetados pela integração Neon↔Vercel:
+  // POSTGRES_PRISMA_URL = pooled c/ pgbouncer (runtime); DATABASE_URL_UNPOOLED = direto (migração/db push).
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 /// Itens de stack/ambiente do Data Lake (seção 2 do 01).
