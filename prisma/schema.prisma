@@ -1,0 +1,126 @@
+// Estado vivo do projeto (o "01_MEMORIA" como dados estruturados).
+// SQLite local por enquanto (Docker não instalado); portável para Postgres+pgvector
+// no RAG/deploy. Sem enums (SQLite/Prisma não suporta) — usamos String + tipos em TS.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Itens de stack/ambiente do Data Lake (seção 2 do 01).
+/// statusVerdade carrega a distinção teoria × realidade.
+model StackItem {
+  id            String   @id @default(cuid())
+  item          String
+  resposta      String?
+  statusVerdade String   @default("lacuna") // template | assumido | confirmado | lacuna
+  proveniencia  String? // fonte / quem confirmou / quando (texto livre)
+  ordem         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// Registro de Dependências do Cliente LM (seção 7 do 01). Aging é CALCULADO
+/// (não armazenado) a partir de solicitadoEm — ver src/lib/state/aging.ts.
+model Dependency {
+  id             String    @id @default(cuid())
+  codigo         String // D1, D2, ...
+  descricao      String
+  solicitadoEm   DateTime?
+  status         String    @default("aguardando") // aguardando | recebido | cancelado
+  trilhoParalelo String?
+  decisaoPedida  String?
+  resolvidoEm    DateTime?
+  ordem          Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+/// Log de decisões (seção 4 do 01).
+model Decision {
+  id        String   @id @default(cuid())
+  data      DateTime @default(now())
+  decisao   String
+  porque    String?
+  quem      String?
+  createdAt DateTime @default(now())
+}
+
+/// Riscos & blockers (seção 8 do 01).
+model Risk {
+  id         String   @id @default(cuid())
+  codigo     String
+  descricao  String
+  severidade String   @default("Média") // Alta | Média | Baixa
+  mitigacao  String?
+  dono       String?
+  ativo      Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Estado por fase / epic (seção 6 do 01).
+model PhaseStatus {
+  id         String   @id @default(cuid())
+  fase       String
+  rag        String   @default("cinza") // cinza | amarelo | verde | vermelho
+  pct        Int      @default(0)
+  comentario String?
+  ordem      Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+/// Stakeholders & RACI (seção 3 do 01).
+model Stakeholder {
+  id               String @id @default(cuid())
+  nome             String?
+  papel            String
+  lado             String? // LM | Blite
+  responsabilidade String?
+  ordem            Int    @default(0)
+}
+
+/// Baseline de adoção (seção 10 do 01).
+model BaselineMetric {
+  id           String    @id @default(cuid())
+  metrica      String
+  valorInicial String?
+  atual        String?
+  data         DateTime?
+  fonte        String?
+  ordem        Int       @default(0)
+}
+
+/// Consumo da API por turno do chat — base do medidor de budget.
+model UsageLog {
+  id              String   @id @default(cuid())
+  model           String
+  inputTokens     Int      @default(0)
+  outputTokens    Int      @default(0)
+  cacheReadTokens Int      @default(0)
+  cacheWriteTokens Int     @default(0)
+  costUsd         Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Histórico/versionamento das escritas no estado (para auditoria + undo).
+/// Toda alteração que o Nero (ou o analista) faz no estado grava uma versão.
+model StateVersion {
+  id        String   @id @default(cuid())
+  entity    String // "Dependency" | "Decision" | "Risk" | ...
+  entityId  String
+  operation String // create | update | delete
+  before    String? // snapshot JSON anterior
+  after     String? // snapshot JSON posterior
+  actor     String   @default("nero") // nero | analista
+  resumo    String? // 1 linha legível do que mudou
+  desfeito  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
