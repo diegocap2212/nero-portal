@@ -26,7 +26,9 @@ function NeroMark({ className = "" }: { className?: string }) {
   );
 }
 
-export function NeroChat() {
+type ChatScope = { faseSlug: string; label?: string };
+
+export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,10 +51,13 @@ export function NeroChat() {
     scrollToBottom();
 
     try {
+      const body: Record<string, unknown> = { messages: next };
+      if (scope?.faseSlug) body.faseSlug = scope.faseSlug;
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok || !res.body) {
@@ -75,7 +80,6 @@ export function NeroChat() {
     } finally {
       setLoading(false);
       scrollToBottom();
-      // Atualiza o medidor de budget na barra de topo após o turno.
       window.dispatchEvent(new Event("nero:usage-updated"));
     }
   }
@@ -99,6 +103,7 @@ export function NeroChat() {
   }
 
   const empty = messages.length === 0;
+  const isScoped = !!scope?.faseSlug;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -109,24 +114,33 @@ export function NeroChat() {
               <NeroMark className="h-14 w-14 rounded-2xl text-2xl shadow-md" />
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold tracking-tight">Nero — Advisor de Dados</h2>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Motor central do portal de governança do Data Lake do LM. Atuo como guia da
-                  operação e executo tarefas (docs no padrão DAMA, report quinzenal, atualização da
-                  memória). Desafio decisões e aponto gaps — não só concordo.
-                </p>
+                {isScoped ? (
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Contexto: <span className="font-medium text-foreground">{scope.label ?? scope.faseSlug}</span>.
+                    Pergunte sobre esta fase, peça análise de riscos, ou solicite escritas no estado.
+                  </p>
+                ) : (
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Motor central do portal de governança do Data Lake do LM. Atuo como guia da
+                    operação e executo tarefas (docs no padrão DAMA, report quinzenal, atualização da
+                    memória). Desafio decisões e aponto gaps — não só concordo.
+                  </p>
+                )}
               </div>
-              <div className="grid w-full gap-2 text-left sm:grid-cols-2">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => send(s)}
-                    className="group flex items-center justify-between gap-2 rounded-xl border bg-card p-3 text-sm text-card-foreground transition-all hover:border-brand/40 hover:bg-accent"
-                  >
-                    <span>{s}</span>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
-                  </button>
-                ))}
-              </div>
+              {!isScoped && (
+                <div className="grid w-full gap-2 text-left sm:grid-cols-2">
+                  {SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => send(s)}
+                      className="group flex items-center justify-between gap-2 rounded-xl border bg-card p-3 text-sm text-card-foreground transition-all hover:border-brand/40 hover:bg-accent"
+                    >
+                      <span>{s}</span>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-5">
@@ -145,7 +159,7 @@ export function NeroChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Pergunte ao Nero ou peça uma tarefa…"
+              placeholder={isScoped ? `Pergunte ao Nero sobre esta fase…` : "Pergunte ao Nero ou peça uma tarefa…"}
               rows={1}
               className="max-h-40 min-h-[40px] resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
@@ -193,7 +207,9 @@ function MessageBubble({ message, loading }: { message: Message; loading: boolea
 
   return (
     <div className="flex gap-3">
-      <NeroMark className="mt-0.5 h-8 w-8 shrink-0 text-sm" />
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-400 text-sm font-semibold text-brand-foreground shadow-sm">
+        N
+      </span>
       <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm bg-muted px-4 py-3 text-sm">
         {message.content ? (
           <div className="prose prose-sm dark:prose-invert max-w-none prose-pre:bg-zinc-900 prose-pre:text-zinc-100">

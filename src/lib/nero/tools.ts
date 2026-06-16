@@ -2,16 +2,17 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   addRisk,
   recordDecision,
+  setFeatureStatus,
   setPhase,
   setStackItem,
+  toggleChecklistItemByText,
   upsertDependency,
 } from "@/lib/state/mutations";
 import { STATUS_VERDADE } from "@/lib/state/provenance";
 
 /**
  * Tools que o Nero pode usar para ESCREVER no estado vivo (01). Cada chamada
- * grava uma StateVersion (auditoria + undo). Mantemos o conjunto enxuto e de alto
- * valor; nada de execução em ferramentas externas (gated — ver kit §1.1).
+ * grava uma StateVersion (auditoria + undo). Conjunto enxuto e de alto valor.
  */
 
 export const NERO_TOOLS: Anthropic.Tool[] = [
@@ -25,6 +26,7 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
         decisao: { type: "string", description: "A decisão, em uma frase." },
         porque: { type: "string", description: "Justificativa breve." },
         quem: { type: "string", description: "Quem decidiu." },
+        faseSlug: { type: "string", description: "Slug da fase relacionada (ex.: 'fase-0'). Opcional." },
       },
       required: ["decisao"],
     },
@@ -61,6 +63,7 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
         status: { type: "string", enum: ["aguardando", "recebido", "cancelado"] },
         trilhoParalelo: { type: "string", description: "O que avança sem o cliente." },
         decisaoPedida: { type: "string" },
+        faseSlug: { type: "string", description: "Slug da fase relacionada (ex.: 'fase-0'). Opcional." },
       },
       required: ["codigo"],
     },
@@ -76,6 +79,7 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
         severidade: { type: "string", enum: ["Alta", "Média", "Baixa"] },
         mitigacao: { type: "string" },
         dono: { type: "string" },
+        faseSlug: { type: "string", description: "Slug da fase relacionada (ex.: 'fase-0'). Opcional." },
       },
       required: ["codigo", "descricao"],
     },
@@ -94,19 +98,58 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
       required: ["fase"],
     },
   },
+  {
+    name: "definir_feature",
+    description:
+      "Atualiza o status de uma feature do roadmap (ex.: F0.1). Use quando a feature mudar de estado durante a conversa.",
+    input_schema: {
+      type: "object",
+      properties: {
+        codigo: { type: "string", description: "Código da feature (ex.: 'F0.1', 'F1.3')." },
+        status: {
+          type: "string",
+          enum: ["nao_iniciada", "em_andamento", "concluida", "bloqueada"],
+          description: "Novo status da feature.",
+        },
+      },
+      required: ["codigo", "status"],
+    },
+  },
+  {
+    name: "marcar_checklist",
+    description:
+      "Marca um item de checklist de uma feature como concluído ou pendente. Use quando um entregável específico for finalizado ou reaberto.",
+    input_schema: {
+      type: "object",
+      properties: {
+        featureCodigo: { type: "string", description: "Código da feature (ex.: 'F0.1')." },
+        itemTexto: {
+          type: "string",
+          description: "Texto (ou parte) do item de checklist. Match por substring, case-insensitive.",
+        },
+        done: { type: "boolean", description: "true = concluído; false = pendente." },
+      },
+      required: ["featureCodigo", "itemTexto", "done"],
+    },
+  },
 ];
 
 type ToolInput = Record<string, unknown>;
 const s = (v: unknown) => (v === undefined || v === null ? undefined : String(v));
 const n = (v: unknown) => (v === undefined || v === null ? undefined : Number(v));
+const b = (v: unknown) => Boolean(v);
 
-/** Executa uma tool do Nero e devolve um texto de confirmação para o tool_result. */
 export async function runNeroTool(name: string, input: ToolInput): Promise<string> {
   try {
     switch (name) {
       case "registrar_decisao": {
-        const r = await recordDecision({ decisao: String(input.decisao), porque: s(input.porque), quem: s(input.quem) });
-        return `Decisão registrada (id ${r.id}).`;
+        const r = await recordDecision({
+          decisao: String(input.decisao),
+          porque: s(input.porque),
+          quem: s(input.quem),
+          faseSlug: s(input.faseSlug),
+        });
+        return `Decisão registrada (id ${r.id})${r.faseId ? " · ligada à fase" : ""}.`;
       }
       case "definir_stack": {
         const r = await setStackItem({
@@ -125,6 +168,7 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           status: s(input.status),
           trilhoParalelo: s(input.trilhoParalelo),
           decisaoPedida: s(input.decisaoPedida),
+          faseSlug: s(input.faseSlug),
         });
         return `Dependência ${r.codigo} salva (status ${r.status}).`;
       }
@@ -135,6 +179,7 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           severidade: s(input.severidade),
           mitigacao: s(input.mitigacao),
           dono: s(input.dono),
+          faseSlug: s(input.faseSlug),
         });
         return `Risco ${r.codigo} adicionado.`;
       }
@@ -146,6 +191,21 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           comentario: s(input.comentario),
         });
         return `Fase "${r.fase}" → ${r.rag} (${r.pct}%).`;
+      }
+      case "definir_feature": {
+        const r = await setFeatureStatus({
+          codigo: String(input.codigo),
+          status: String(input.status),
+        });
+        return `Feature ${r.codigo} → ${r.status}.`;
+      }
+      case "marcar_checklist": {
+        const r = await toggleChecklistItemByText({
+          featureCodigo: String(input.featureCodigo),
+          itemTexto: String(input.itemTexto),
+          done: b(input.done),
+        });
+        return `Checklist "${r.texto.slice(0, 50)}" → ${r.done ? "✓ concluído" : "pendente"}.`;
       }
       default:
         return `Tool desconhecida: ${name}`;

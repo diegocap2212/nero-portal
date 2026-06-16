@@ -4,20 +4,22 @@ import { streamTurn, NERO_MODEL, type NeroMessage } from "@/lib/nero/core";
 import { runNeroTool } from "@/lib/nero/tools";
 import { costOfTurn } from "@/lib/nero/pricing";
 import { prisma } from "@/lib/db";
+import { loadPhase, buildPhaseContext } from "@/lib/state/queries";
 
-// O Nero Core usa fs (carrega o kit), o SDK da Anthropic e o Prisma — runtime Node.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Streaming + loop de tools pode passar de poucos segundos (Hobby até 60s, Pro até 300s).
 export const maxDuration = 60;
 
-const MAX_TURNS = 6; // guarda contra loop infinito de tool use.
+const MAX_TURNS = 6;
 
 export async function POST(req: NextRequest) {
   let incoming: NeroMessage[];
+  let faseSlug: string | undefined;
+
   try {
     const body = await req.json();
     incoming = body.messages;
+    faseSlug = typeof body.faseSlug === "string" ? body.faseSlug : undefined;
     if (!Array.isArray(incoming) || incoming.length === 0) {
       return new Response("Corpo inválido: 'messages' é obrigatório.", { status: 400 });
     }
@@ -30,6 +32,17 @@ export async function POST(req: NextRequest) {
       "ANTHROPIC_API_KEY não configurada. Defina-a em .env.local para usar o Nero.",
       { status: 500 },
     );
+  }
+
+  // Carrega contexto da fase se o chat for escopado a um step do roadmap.
+  let scopeContext: string | undefined;
+  if (faseSlug) {
+    try {
+      const detail = await loadPhase(faseSlug);
+      if (detail) scopeContext = buildPhaseContext(detail);
+    } catch (e) {
+      console.error("[Nero] falha ao carregar contexto da fase:", e);
+    }
   }
 
   const encoder = new TextEncoder();
@@ -45,7 +58,7 @@ export async function POST(req: NextRequest) {
 
       try {
         for (let turn = 0; turn < MAX_TURNS; turn++) {
-          const turnStream = await streamTurn(messages);
+          const turnStream = await streamTurn(messages, { scopeContext });
 
           for await (const event of turnStream) {
             if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
@@ -62,7 +75,6 @@ export async function POST(req: NextRequest) {
             cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
           };
           const costUsd = costOfTurn(NERO_MODEL, usage);
-          // Registra o consumo (base do medidor de budget). Não derruba o chat se falhar.
           try {
             await prisma.usageLog.create({ data: { model: NERO_MODEL, ...usage, costUsd } });
           } catch (e) {
@@ -72,7 +84,6 @@ export async function POST(req: NextRequest) {
 
           if (final.stop_reason !== "tool_use") break;
 
-          // Executa cada tool e devolve os resultados como tool_result.
           const toolResults: Anthropic.ToolResultBlockParam[] = [];
           for (const block of final.content) {
             if (block.type === "tool_use") {

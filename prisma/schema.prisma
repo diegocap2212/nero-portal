@@ -38,6 +38,7 @@ model Dependency {
   trilhoParalelo String?
   decisaoPedida  String?
   resolvidoEm    DateTime?
+  faseId         String? // liga a dependência a uma fase do roadmap (opcional)
   ordem          Int       @default(0)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -50,6 +51,7 @@ model Decision {
   decisao   String
   porque    String?
   quem      String?
+  faseId    String? // liga a decisão a uma fase do roadmap (opcional)
   createdAt DateTime @default(now())
 }
 
@@ -62,19 +64,53 @@ model Risk {
   mitigacao  String?
   dono       String?
   ativo      Boolean  @default(true)
+  faseId     String? // liga o risco a uma fase do roadmap (opcional)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
 
-/// Estado por fase / epic (seção 6 do 01).
+/// Estado por fase / epic (seção 6 do 01). Nós macro do roadmap.
 model PhaseStatus {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   fase       String
-  rag        String   @default("cinza") // cinza | amarelo | verde | vermelho
-  pct        Int      @default(0)
+  slug       String? // ex.: "fase-0" (rota do roadmap)
+  gate       String? // ex.: "G0"
+  janela     String? // ex.: "Semanas 1–2"
+  foco       String? // resumo curto do foco da fase
+  rag        String    @default("cinza") // cinza | amarelo | verde | vermelho
+  pct        Int       @default(0) // override manual; o % exibido é derivado das features
   comentario String?
-  ordem      Int      @default(0)
-  updatedAt  DateTime @updatedAt
+  ordem      Int       @default(0)
+  updatedAt  DateTime  @updatedAt
+  features   Feature[]
+}
+
+/// Features do roadmap (micro) — derivadas do kit 03 (F*.*). % vem do checklist.
+model Feature {
+  id             String          @id @default(cuid())
+  codigo         String // ex.: "F0.1"
+  titulo         String
+  descricao      String?
+  status         String          @default("nao_iniciada") // nao_iniciada | em_andamento | concluida | bloqueada
+  dependeLM      Boolean         @default(false)
+  trilhoParalelo String?
+  areaDama       String?
+  ordem          Int             @default(0)
+  faseId         String
+  fase           PhaseStatus     @relation(fields: [faseId], references: [id], onDelete: Cascade)
+  checklist      ChecklistItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+/// Itens de checklist de uma feature (definição de pronto).
+model ChecklistItem {
+  id        String  @id @default(cuid())
+  texto     String
+  done      Boolean @default(false)
+  ordem     Int     @default(0)
+  featureId String
+  feature   Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
 }
 
 /// Stakeholders & RACI (seção 3 do 01).

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, LayoutDashboard } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BudgetMeter } from "@/components/budget-meter";
 
 const LINKS = [
   { href: "/", label: "Chat / Guia", icon: MessageSquare },
   { href: "/estado", label: "Estado vivo", icon: LayoutDashboard },
+  { href: "/roadmap", label: "Roadmap", icon: Map },
 ];
 
 export function TopNav() {
