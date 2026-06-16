@@ -5,6 +5,7 @@ import { loadPhase } from "@/lib/state/queries";
 import { agingDias, agingNivel } from "@/lib/state/aging";
 import { FeatureChecklist } from "@/components/feature-checklist";
 import { NeroChat } from "@/components/nero-chat";
+import { NeroLogo } from "@/components/nero-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -240,9 +241,7 @@ export default async function PhasePage({ params }: { params: Promise<{ slug: st
         <div className="flex flex-col rounded-2xl border bg-card overflow-hidden lg:h-[calc(100vh-10rem)] lg:sticky lg:top-20">
           <div className="border-b px-4 py-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-brand to-indigo-400 text-xs font-semibold text-brand-foreground">
-                N
-              </span>
+              <NeroLogo size={24} />
               <span className="text-sm font-medium">Nero · contexto desta fase</span>
             </div>
           </div>

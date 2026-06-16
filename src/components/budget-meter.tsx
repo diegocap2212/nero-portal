@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type Usage = { costUsd: number; budgetUsd: number; pct: number; turns: number };
+type Usage = {
+  costUsd: number;
+  budgetUsd: number;
+  pct: number;
+  turns: number;
+  remainingDays: number;
+  resetAt: string;
+};
 
 export function BudgetMeter() {
   const [u, setU] = useState<Usage | null>(null);
@@ -31,25 +38,45 @@ export function BudgetMeter() {
 
   const tone = u.pct >= 90 ? "red" : u.pct >= 70 ? "amber" : "green";
   const bar =
-    tone === "red" ? "bg-red-500" : tone === "amber" ? "bg-amber-500" : "bg-green-500";
-  const text =
+    tone === "red" ? "bg-red-500" : tone === "amber" ? "bg-amber-500" : "bg-emerald-500";
+  const valueColor =
     tone === "red"
       ? "text-red-600 dark:text-red-400"
       : tone === "amber"
         ? "text-amber-600 dark:text-amber-400"
-        : "text-muted-foreground";
+        : "text-emerald-600 dark:text-emerald-400";
+
+  const resetDate = u.resetAt
+    ? new Date(u.resetAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+    : "—";
+  const tooltipText = `Budget mensal · $${u.costUsd.toFixed(3)} de $${u.budgetUsd.toFixed(0)} · ${u.turns} turnos · zera em ${resetDate}`;
 
   return (
-    <div
-      className="flex items-center gap-2"
-      title={`Consumo do mês: $${u.costUsd.toFixed(3)} de $${u.budgetUsd.toFixed(2)} · ${u.turns} turnos`}
-    >
-      <span className={`hidden text-xs font-medium tabular-nums sm:inline ${text}`}>
-        ${u.costUsd.toFixed(2)}
-        <span className="text-muted-foreground"> / ${u.budgetUsd.toFixed(0)}</span>
+    <div className="flex flex-col gap-0.5" title={tooltipText} aria-label={tooltipText}>
+      {/* Rótulo "Budget mensal" */}
+      <span className="hidden text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60 sm:block">
+        Budget mensal
       </span>
-      <div className="h-1.5 w-14 overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.max(3, u.pct)}%` }} />
+
+      <div className="flex items-center gap-2">
+        {/* Valor gasto / orçamento */}
+        <span className={`hidden text-[11px] font-semibold tabular-nums sm:inline ${valueColor}`}>
+          ${u.costUsd.toFixed(2)}
+          <span className="font-normal text-muted-foreground"> /{u.budgetUsd.toFixed(0)}</span>
+        </span>
+
+        {/* Barra de progresso */}
+        <div className="h-1.5 w-14 overflow-hidden rounded-full bg-muted/80">
+          <div
+            className={`h-full rounded-full transition-all ${bar}`}
+            style={{ width: `${Math.max(3, u.pct)}%` }}
+          />
+        </div>
+
+        {/* "zera em X dias" — visível em telas largas */}
+        <span className="hidden text-[10px] text-muted-foreground lg:inline whitespace-nowrap">
+          {u.remainingDays === 0 ? "zera hoje" : `zera em ${u.remainingDays}d`}
+        </span>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { MessageSquare, LayoutDashboard, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BudgetMeter } from "@/components/budget-meter";
+import { NeroLogo } from "@/components/nero-logo";
 
 const LINKS = [
   { href: "/", label: "Chat / Guia", icon: MessageSquare },
@@ -19,9 +20,7 @@ export function TopNav() {
     <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-2.5">
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-400 font-semibold text-brand-foreground shadow-sm">
-            N
-          </span>
+          <NeroLogo size={34} />
           <span className="flex flex-col leading-none">
             <span className="text-sm font-semibold tracking-tight">Nero</span>
             <span className="text-[11px] text-muted-foreground">Governança de Dados · LM</span>

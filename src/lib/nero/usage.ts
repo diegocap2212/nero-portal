@@ -21,6 +21,10 @@ export async function getMonthUsage() {
   const costUsd = agg._sum.costUsd ?? 0;
   const budgetUsd = monthlyBudgetUsd();
 
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  endOfMonth.setHours(23, 59, 59, 999);
+  const remainingDays = Math.max(0, Math.ceil((endOfMonth.getTime() - now.getTime()) / 86_400_000));
+
   return {
     costUsd,
     budgetUsd,
@@ -33,6 +37,8 @@ export async function getMonthUsage() {
       cacheWrite: agg._sum.cacheWriteTokens ?? 0,
     },
     since: startOfMonth.toISOString(),
+    resetAt: endOfMonth.toISOString(),
+    remainingDays,
   };
 }
 

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NeroLogo } from "@/components/nero-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +15,7 @@ export default async function LoginPage({
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-indigo-400 text-xl font-semibold text-brand-foreground shadow-md">
-            N
-          </span>
+          <NeroLogo size={64} className="drop-shadow-md" />
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Portal Nero</h1>
             <p className="text-sm text-muted-foreground">Governança de Dados · LM</p>

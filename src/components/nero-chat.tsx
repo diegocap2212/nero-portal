@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { ArrowRight, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { NeroLogo } from "@/components/nero-logo";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -15,16 +16,6 @@ const SUGGESTIONS = [
   "Gere o esqueleto do catálogo de uma tabela no padrão do Golden Example.",
   "O que preciso confirmar no discovery antes de avançar para a Fase 3?",
 ];
-
-function NeroMark({ className = "" }: { className?: string }) {
-  return (
-    <span
-      className={`flex items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-400 font-semibold text-brand-foreground shadow-sm ${className}`}
-    >
-      N
-    </span>
-  );
-}
 
 type ChatScope = { faseSlug: string; label?: string };
 
@@ -111,7 +102,7 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
         <div className="mx-auto w-full max-w-3xl px-4 py-6">
           {empty ? (
             <div className="mx-auto mt-8 flex max-w-xl flex-col items-center gap-5 text-center">
-              <NeroMark className="h-14 w-14 rounded-2xl text-2xl shadow-md" />
+              <NeroLogo size={72} className="drop-shadow-md" />
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold tracking-tight">Nero — Advisor de Dados</h2>
                 {isScoped ? (
@@ -207,9 +198,7 @@ function MessageBubble({ message, loading }: { message: Message; loading: boolea
 
   return (
     <div className="flex gap-3">
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-indigo-400 text-sm font-semibold text-brand-foreground shadow-sm">
-        N
-      </span>
+      <NeroLogo size={32} className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm bg-muted px-4 py-3 text-sm">
         {message.content ? (
           <div className="prose prose-sm dark:prose-invert max-w-none prose-pre:bg-zinc-900 prose-pre:text-zinc-100">
