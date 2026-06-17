@@ -18,6 +18,9 @@ const ENTITY_DATE_FIELDS: Record<string, string[]> = {
   PhaseStatus: ["updatedAt"],
   Feature: ["createdAt", "updatedAt"],
   ChecklistItem: [],
+  Stakeholder: [],
+  BaselineMetric: ["data"],
+  ProjectNote: ["updatedAt"],
 };
 
 function modelOf(tx: Tx, entity: string) {
@@ -29,6 +32,9 @@ function modelOf(tx: Tx, entity: string) {
     case "PhaseStatus":   return tx.phaseStatus;
     case "Feature":       return tx.feature;
     case "ChecklistItem": return tx.checklistItem;
+    case "Stakeholder":   return tx.stakeholder;
+    case "BaselineMetric": return tx.baselineMetric;
+    case "ProjectNote":   return tx.projectNote;
     default: throw new Error(`Entidade desconhecida: ${entity}`);
   }
 }
@@ -405,6 +411,100 @@ export async function editFeature(
       after,
       actor,
       resumo: `Feature ${input.codigo} editada${input.novoCodigo && input.novoCodigo !== input.codigo ? ` → ${input.novoCodigo}` : ""}`,
+    });
+    return after;
+  });
+}
+
+/** Cria/atualiza um stakeholder (RACI). Chave: nome+papel. */
+export async function upsertStakeholder(
+  input: { nome?: string; papel: string; lado?: string; responsabilidade?: string },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.stakeholder.findFirst({
+      where: { papel: input.papel, nome: input.nome ?? null },
+    });
+    const data = {
+      nome: input.nome ?? before?.nome ?? null,
+      papel: input.papel,
+      lado: input.lado ?? before?.lado ?? null,
+      responsabilidade: input.responsabilidade ?? before?.responsabilidade ?? null,
+    };
+    const after = before
+      ? await tx.stakeholder.update({ where: { id: before.id }, data })
+      : await tx.stakeholder.create({ data });
+    await recordVersion(tx, {
+      entity: "Stakeholder",
+      entityId: after.id,
+      operation: before ? "update" : "create",
+      before,
+      after,
+      actor,
+      resumo: `Stakeholder ${input.nome ? `${input.nome} ` : ""}(${input.papel})`,
+    });
+    return after;
+  });
+}
+
+/** Cria/atualiza uma métrica de baseline de adoção. Chave: metrica. */
+export async function upsertBaselineMetric(
+  input: { metrica: string; valorInicial?: string; atual?: string; data?: string; fonte?: string },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.baselineMetric.findFirst({ where: { metrica: input.metrica } });
+    const data = {
+      metrica: input.metrica,
+      valorInicial: input.valorInicial ?? before?.valorInicial ?? null,
+      atual: input.atual ?? before?.atual ?? null,
+      data: input.data ? new Date(input.data) : before?.data ?? null,
+      fonte: input.fonte ?? before?.fonte ?? null,
+    };
+    const after = before
+      ? await tx.baselineMetric.update({ where: { id: before.id }, data })
+      : await tx.baselineMetric.create({ data });
+    await recordVersion(tx, {
+      entity: "BaselineMetric",
+      entityId: after.id,
+      operation: before ? "update" : "create",
+      before,
+      after,
+      actor,
+      resumo: `Baseline "${input.metrica}"${input.atual ? ` → ${input.atual}` : ""}`,
+    });
+    return after;
+  });
+}
+
+/** Seções de texto livre da memória. Chave: secao. */
+export const MEMORIA_SECOES = [
+  "metadados",
+  "resumo",
+  "premissas",
+  "proximas_acoes",
+  "glossario",
+] as const;
+
+export async function upsertProjectNote(
+  input: { secao: string; conteudo: string },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.projectNote.findUnique({ where: { secao: input.secao } });
+    const after = await tx.projectNote.upsert({
+      where: { secao: input.secao },
+      update: { conteudo: input.conteudo },
+      create: { secao: input.secao, conteudo: input.conteudo },
+    });
+    await recordVersion(tx, {
+      entity: "ProjectNote",
+      entityId: after.id,
+      operation: before ? "update" : "create",
+      before,
+      after,
+      actor,
+      resumo: `Memória "${input.secao}" atualizada`,
     });
     return after;
   });

@@ -1,6 +1,12 @@
-# 01 — MEMÓRIA DO PROJETO (fonte da verdade)
+> ⚠️ **DOC HISTÓRICO — NÃO É MAIS A FONTE DA VERDADE.** A memória viva do projeto agora é
+> **gerada do banco de dados** e injetada no system prompt do Nero por `buildMemoriaContext()`
+> (`src/lib/state/queries.ts`). Este arquivo não é mais carregado pelo motor; serve só como
+> referência da estrutura original §0–§12. Edite o estado pelas ferramentas do Nero ou pela
+> página `/estado`.
 
-Arquivo-estado único e enxuto. O agente lê isto no início de cada sessão e propõe um "📌 DELTA DE MEMÓRIA" no fim. Resuma decisões, não transcreva conversas.
+# 01 — MEMÓRIA DO PROJETO (estrutura de referência)
+
+Arquivo-estado original. Estrutura §0–§12 reproduzida pelo renderer a partir do banco.
 
 **Última atualização:** AAAA-MM-DD | **Atualizado por:** ____
 

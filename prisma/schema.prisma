@@ -134,6 +134,16 @@ model BaselineMetric {
   ordem        Int       @default(0)
 }
 
+/// Seções de texto livre da memória do projeto (§0 metadados, §1 resumo, §5 premissas,
+/// §9 próximas ações, §11 glossário). O Nero edita via tool editar_memoria. O renderer
+/// (buildMemoriaContext) usa estes valores quando presentes; senão cai em defaults estáticos.
+model ProjectNote {
+  id        String   @id @default(cuid())
+  secao     String   @unique // metadados | resumo | premissas | proximas_acoes | glossario
+  conteudo  String
+  updatedAt DateTime @updatedAt
+}
+
 /// Consumo da API por turno do chat — base do medidor de budget.
 model UsageLog {
   id              String   @id @default(cuid())

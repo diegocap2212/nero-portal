@@ -8,7 +8,46 @@ function daysAgo(n: number): Date {
   return d;
 }
 
+// Seções de texto livre da memória (§0/§1/§5/§9/§11). Idempotente por seção:
+// cria só se ausente, NUNCA sobrescreve o que o Nero já editou.
+async function seedProjectNotes() {
+  const notes: { secao: string; conteudo: string }[] = [
+    {
+      secao: "metadados",
+      conteudo: [
+        "| Campo | Valor |",
+        "|---|---|",
+        "| Projeto | Habilitação, Governança e Aculturamento — Data Lake LM |",
+        "| Cliente | LM |",
+        "| Executora | Blite/Venice Tech |",
+        "| Duração | 6 meses |",
+      ].join("\n"),
+    },
+    {
+      secao: "resumo",
+      conteudo:
+        "Apoiar a habilitação e o aculturamento das áreas de negócio do cliente LM no uso do Data Lake, com foco em autonomia no consumo de dados, governança/documentação dos ativos (catálogo, dicionário, glossário, ownership), boas práticas de consulta e cultura data-driven, deixando ao final um operating model sustentável e um roadmap de maturidade.",
+    },
+    {
+      secao: "glossario",
+      conteudo: [
+        "| Termo | Definição |",
+        "|---|---|",
+        "| Owner de domínio | Responsável por validar e manter os ativos de um domínio de dados |",
+        "| Trilho paralelo | Trabalho que avança sem depender do cliente |",
+      ].join("\n"),
+    },
+  ];
+  for (const n of notes) {
+    const exists = await prisma.projectNote.findUnique({ where: { secao: n.secao } });
+    if (!exists) await prisma.projectNote.create({ data: n });
+  }
+  console.log(`ProjectNotes garantidas (${notes.length} seções base).`);
+}
+
 async function main() {
+  await seedProjectNotes();
+
   // Idempotente: pula se já existem features (evita destruir dados reais).
   const featureCount = await prisma.feature.count();
   if (featureCount > 0) {

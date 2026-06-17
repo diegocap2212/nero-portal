@@ -4,12 +4,16 @@ import {
   addRisk,
   createFeature,
   editFeature,
+  MEMORIA_SECOES,
   recordDecision,
   setFeatureStatus,
   setPhase,
   setStackItem,
   toggleChecklistItemByText,
+  upsertBaselineMetric,
   upsertDependency,
+  upsertProjectNote,
+  upsertStakeholder,
 } from "@/lib/state/mutations";
 import { STATUS_VERDADE } from "@/lib/state/provenance";
 
@@ -193,6 +197,55 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
       required: ["featureCodigo", "itemTexto", "done"],
     },
   },
+  {
+    name: "definir_stakeholder",
+    description:
+      "Cria ou atualiza um stakeholder do RACI (seção 3 da memória). Use ao identificar/confirmar quem é sponsor, owner de domínio, eng. de plataforma, etc.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nome: { type: "string", description: "Nome da pessoa (se conhecido)." },
+        papel: { type: "string", description: "Papel (ex.: 'Sponsor', 'Owner de domínio')." },
+        lado: { type: "string", enum: ["LM", "Blite"], description: "De que lado está." },
+        responsabilidade: { type: "string", description: "Responsabilidade no projeto." },
+      },
+      required: ["papel"],
+    },
+  },
+  {
+    name: "definir_baseline",
+    description:
+      "Cria ou atualiza uma métrica de baseline de adoção (seção 10). Use ao capturar valor inicial ou medição atual (usuários ativos, queries/semana, tabelas documentadas, etc.).",
+    input_schema: {
+      type: "object",
+      properties: {
+        metrica: { type: "string", description: "Nome da métrica." },
+        valorInicial: { type: "string", description: "Valor inicial (baseline)." },
+        atual: { type: "string", description: "Medição atual." },
+        data: { type: "string", format: "date", description: "Data da medição (YYYY-MM-DD)." },
+        fonte: { type: "string", description: "Fonte do dado." },
+      },
+      required: ["metrica"],
+    },
+  },
+  {
+    name: "editar_memoria",
+    description:
+      "Atualiza uma seção de TEXTO LIVRE da memória do projeto (markdown). Use para resumo, premissas/pendências, próximas ações de curto prazo e glossário. Para dados estruturados (decisões, stack, fases, features, riscos, dependências, stakeholders, baseline) use as ferramentas específicas, não esta.",
+    input_schema: {
+      type: "object",
+      properties: {
+        secao: {
+          type: "string",
+          enum: [...MEMORIA_SECOES],
+          description:
+            "metadados | resumo | premissas | proximas_acoes | glossario.",
+        },
+        conteudo: { type: "string", description: "Conteúdo completo da seção, em markdown (substitui o anterior)." },
+      },
+      required: ["secao", "conteudo"],
+    },
+  },
 ];
 
 type ToolInput = Record<string, unknown>;
@@ -299,6 +352,32 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           done: b(input.done),
         });
         return `Checklist "${r.texto.slice(0, 50)}" → ${r.done ? "✓ concluído" : "pendente"}.`;
+      }
+      case "definir_stakeholder": {
+        const r = await upsertStakeholder({
+          nome: s(input.nome),
+          papel: String(input.papel),
+          lado: s(input.lado),
+          responsabilidade: s(input.responsabilidade),
+        });
+        return `Stakeholder ${r.nome ? `${r.nome} ` : ""}(${r.papel}) salvo.`;
+      }
+      case "definir_baseline": {
+        const r = await upsertBaselineMetric({
+          metrica: String(input.metrica),
+          valorInicial: s(input.valorInicial),
+          atual: s(input.atual),
+          data: s(input.data),
+          fonte: s(input.fonte),
+        });
+        return `Baseline "${r.metrica}" salva.`;
+      }
+      case "editar_memoria": {
+        const r = await upsertProjectNote({
+          secao: String(input.secao),
+          conteudo: String(input.conteudo),
+        });
+        return `Memória "${r.secao}" atualizada.`;
       }
       default:
         return `Tool desconhecida: ${name}`;

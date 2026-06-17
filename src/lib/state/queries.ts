@@ -173,3 +173,169 @@ export function buildPhaseContext(detail: PhaseDetail): string {
 
   return lines.join("\n");
 }
+
+// ---- Memória viva gerada do banco (substitui o antigo 01_MEMORIA_PROJETO.md) ----
+
+/**
+ * Defaults estáticos das seções de texto livre. Usados quando não há ProjectNote
+ * gravada (ex.: prod recém-deployado). O Nero sobrescreve via tool editar_memoria.
+ */
+const DEFAULT_NOTES: Record<string, string> = {
+  metadados: [
+    "| Campo | Valor |",
+    "|---|---|",
+    "| Projeto | Habilitação, Governança e Aculturamento — Data Lake LM |",
+    "| Cliente | LM |",
+    "| Executora | Blite/Venice Tech |",
+    "| Duração | 6 meses |",
+    "",
+    "_(Fase atual e RAG geral são derivados do §6, abaixo.)_",
+  ].join("\n"),
+  resumo:
+    "Apoiar a habilitação e o aculturamento das áreas de negócio do cliente LM no uso do Data Lake, com foco em autonomia no consumo de dados, governança/documentação dos ativos (catálogo, dicionário, glossário, ownership), boas práticas de consulta e cultura data-driven, deixando ao final um operating model sustentável e um roadmap de maturidade.",
+  premissas:
+    "_(Nenhuma premissa/pendência registrada. Registre com a ferramenta editar_memoria, seção `premissas`.)_",
+  proximas_acoes:
+    "_(Nenhuma ação de curto prazo registrada. Registre com editar_memoria, seção `proximas_acoes`.)_",
+  glossario: [
+    "| Termo | Definição |",
+    "|---|---|",
+    "| Owner de domínio | Responsável por validar e manter os ativos de um domínio de dados |",
+    "| Trilho paralelo | Trabalho que avança sem depender do cliente |",
+  ].join("\n"),
+};
+
+const RAG_EMOJI: Record<string, string> = {
+  cinza: "⚪",
+  amarelo: "🟡",
+  verde: "🟢",
+  vermelho: "🔴",
+};
+
+/**
+ * Monta o bloco "ESTADO ATUAL DO PROJETO" inteiro (§0–§12) a partir do banco.
+ * É a fonte da verdade injetada no system prompt do Nero a cada turno — substitui
+ * o antigo arquivo estático 01_MEMORIA_PROJETO.md. Toda escrita de tool aparece aqui
+ * na sessão seguinte, sem passo humano.
+ */
+export async function buildMemoriaContext(): Promise<string> {
+  const [state, roadmap, notesRows, versions] = await Promise.all([
+    loadProjectState(),
+    loadRoadmap(),
+    prisma.projectNote.findMany(),
+    prisma.stateVersion.findMany({
+      where: { desfeito: false },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    }),
+  ]);
+
+  const note = (secao: string) =>
+    notesRows.find((n) => n.secao === secao)?.conteudo ?? DEFAULT_NOTES[secao] ?? "—";
+
+  const now = new Date();
+  const L: string[] = [];
+  L.push("# ================= ESTADO ATUAL DO PROJETO =================");
+  L.push(
+    "Esta é a **memória viva** do projeto — gerada automaticamente a partir do banco a cada " +
+      "sessão. É a **fonte da verdade**. Suas ferramentas escrevem direto aqui e o resultado " +
+      "aparece neste bloco na próxima sessão; **não há arquivo `.md` para manter nem re-upload**. " +
+      "Se a conversa contradisser este estado, sinalize.\n",
+  );
+
+  L.push("## 0. Metadados\n" + note("metadados"));
+  L.push("\n## 1. Resumo do projeto\n" + note("resumo"));
+
+  // §2 Stack
+  L.push("\n## 2. Stack & ambiente do Data Lake");
+  if (state.stack.length) {
+    L.push("| Item | Resposta | Status de verdade |", "|---|---|---|");
+    for (const s of state.stack) {
+      L.push(`| ${s.item} | ${s.resposta ?? "—"} | ${s.statusVerdade} |`);
+    }
+  } else L.push("_(vazio)_");
+
+  // §3 Stakeholders
+  L.push("\n## 3. Stakeholders & RACI");
+  if (state.stakeholders.length) {
+    L.push("| Nome | Papel | Lado | Responsabilidade |", "|---|---|---|---|");
+    for (const s of state.stakeholders) {
+      L.push(`| ${s.nome ?? "—"} | ${s.papel} | ${s.lado ?? "—"} | ${s.responsabilidade ?? "—"} |`);
+    }
+  } else L.push("_(vazio)_");
+
+  // §4 Decisões
+  L.push("\n## 4. Log de decisões");
+  if (state.decisions.length) {
+    for (const d of state.decisions) {
+      const data = d.data.toISOString().slice(0, 10);
+      L.push(`- ${data} — ${d.decisao}${d.porque ? ` (${d.porque})` : ""}${d.quem ? ` — ${d.quem}` : ""}`);
+    }
+  } else L.push("_(nenhuma decisão registrada)_");
+
+  L.push("\n## 5. Premissas & decisões pendentes\n" + note("premissas"));
+
+  // §6 Estado por fase (macro, com % derivado das features)
+  L.push("\n## 6. Estado por fase / epic");
+  L.push("| Fase | Status | % | Features | Comentário |", "|---|---|---|---|---|");
+  for (const p of roadmap) {
+    const emoji = RAG_EMOJI[p.rag] ?? "⚪";
+    L.push(
+      `| ${p.fase} | ${emoji} ${p.rag} | ${p.pctDerived}% | ${p.doneFeatures}/${p.totalFeatures} | ${p.comentario ?? ""} |`,
+    );
+  }
+
+  // §7 Dependências do LM (aging calculado)
+  L.push("\n## 7. 🔴 Dependências do Cliente LM (revisar toda sessão)");
+  if (state.dependencies.length) {
+    L.push("| # | O que precisamos | Solicitado | Status | Aging (dias úteis) | Trilho paralelo |", "|---|---|---|---|---|---|");
+    for (const d of state.dependencies) {
+      const aging = agingDias(d.solicitadoEm, now);
+      const agingTxt = aging === null ? "—" : `${aging}${aging >= 5 ? " 🔴" : ""}`;
+      const sol = d.solicitadoEm ? d.solicitadoEm.toISOString().slice(0, 10) : "—";
+      L.push(`| ${d.codigo} | ${d.descricao} | ${sol} | ${d.status} | ${agingTxt} | ${d.trilhoParalelo ?? "—"} |`);
+    }
+  } else L.push("_(nenhuma dependência registrada)_");
+
+  // §8 Riscos ativos
+  L.push("\n## 8. Riscos & blockers");
+  const riscosAtivos = state.risks.filter((r) => r.ativo);
+  if (riscosAtivos.length) {
+    L.push("| # | Risco/Blocker | Sev | Mitigação | Dono |", "|---|---|---|---|---|");
+    for (const r of riscosAtivos) {
+      L.push(`| ${r.codigo} | ${r.descricao} | ${r.severidade} | ${r.mitigacao ?? "—"} | ${r.dono ?? "—"} |`);
+    }
+  } else L.push("_(nenhum risco ativo)_");
+
+  L.push("\n## 9. Próximas ações (curto prazo)\n" + note("proximas_acoes"));
+
+  // §10 Baseline
+  L.push("\n## 10. Baseline de adoção");
+  if (state.baseline.length) {
+    L.push("| Métrica | Valor inicial | Atual | Data | Fonte |", "|---|---|---|---|---|");
+    for (const b of state.baseline) {
+      const data = b.data ? b.data.toISOString().slice(0, 10) : "—";
+      L.push(`| ${b.metrica} | ${b.valorInicial ?? "—"} | ${b.atual ?? "—"} | ${data} | ${b.fonte ?? "—"} |`);
+    }
+  } else L.push("_(baseline não capturada)_");
+
+  L.push("\n## 11. Glossário do projeto\n" + note("glossario"));
+
+  // §12 Histórico recente — derivado da auditoria (StateVersion)
+  L.push("\n## 12. Histórico recente (auditoria automática)");
+  if (versions.length) {
+    for (const v of versions) {
+      const data = v.createdAt.toISOString().slice(0, 10);
+      L.push(`- ${data} — ${v.resumo ?? `${v.operation} ${v.entity}`} _(${v.actor})_`);
+    }
+  } else L.push("_(sem alterações registradas)_");
+
+  // Marcadores de verdade
+  L.push(
+    "\n> Distinção teoria × realidade: o stack e a âncora DAMA são template/ideal até " +
+      "**confirmados com o LM**. Marque premissas como pendência até validar; nunca trate " +
+      "template como verdade.",
+  );
+
+  return L.join("\n");
+}

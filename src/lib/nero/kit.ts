@@ -9,9 +9,11 @@ import path from "path";
 
 const KIT_DIR = path.join(process.cwd(), "content", "kit");
 
+// NB: o "01" (memória do projeto) NÃO é mais carregado de arquivo — o estado vivo é
+// gerado do banco por buildMemoriaContext() (ver src/lib/state/queries.ts). O arquivo
+// content/kit/01_MEMORIA_PROJETO.md fica só como doc histórico.
 export const KIT_FILES = {
   "00": "00_INSTRUCOES_AGENTE.md",
-  "01": "01_MEMORIA_PROJETO.md",
   "02": "02_ROADMAP_MACRO.md",
   "03": "03_EPICS_E_TASKS.md",
   "04": "04_REPORT_QUINZENAL_TEMPLATE.md",
