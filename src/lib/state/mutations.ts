@@ -239,7 +239,10 @@ export async function setFeatureStatus(
 ) {
   return prisma.$transaction(async (tx) => {
     const before = await tx.feature.findFirst({ where: { codigo: input.codigo } });
-    if (!before) throw new Error(`Feature não encontrada: ${input.codigo}`);
+    if (!before)
+      throw new Error(
+        `Feature ${input.codigo} não existe — crie com criar_feature antes de atualizar o status.`,
+      );
     const after = await tx.feature.update({
       where: { id: before.id },
       data: { status: input.status },
@@ -252,6 +255,156 @@ export async function setFeatureStatus(
       after,
       actor,
       resumo: `Feature ${input.codigo} → ${input.status}`,
+    });
+    return after;
+  });
+}
+
+/**
+ * Cria uma feature NOVA sob uma fase (com checklist inline opcional). Use quando o
+ * roadmap evoluir — não para mudar status (isso é setFeatureStatus).
+ */
+export async function createFeature(
+  input: {
+    codigo: string;
+    titulo: string;
+    faseSlug: string;
+    descricao?: string;
+    dependeLM?: boolean;
+    areaDama?: string;
+    status?: string;
+    checklist?: string[];
+  },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const faseId = await resolvePhaseId(tx, input.faseSlug);
+    if (!faseId)
+      throw new Error(
+        `Fase não encontrada para slug "${input.faseSlug}". Slugs válidos: fase-0..fase-6.`,
+      );
+
+    const dup = await tx.feature.findFirst({ where: { codigo: input.codigo } });
+    if (dup)
+      throw new Error(
+        `Feature ${input.codigo} já existe — use editar_feature ou definir_feature.`,
+      );
+
+    const last = await tx.feature.findFirst({
+      where: { faseId },
+      orderBy: { ordem: "desc" },
+    });
+    const ordem = (last?.ordem ?? -1) + 1;
+
+    const itens = (input.checklist ?? []).filter((t) => t.trim().length > 0);
+    const after = await tx.feature.create({
+      data: {
+        codigo: input.codigo,
+        titulo: input.titulo,
+        descricao: input.descricao,
+        status: input.status ?? "nao_iniciada",
+        dependeLM: input.dependeLM ?? false,
+        areaDama: input.areaDama,
+        ordem,
+        faseId,
+        checklist: itens.length
+          ? { create: itens.map((texto, i) => ({ texto, ordem: i })) }
+          : undefined,
+      },
+    });
+    await recordVersion(tx, {
+      entity: "Feature",
+      entityId: after.id,
+      operation: "create",
+      before: null,
+      after,
+      actor,
+      resumo: `Feature ${input.codigo} criada: ${input.titulo}`,
+    });
+    return after;
+  });
+}
+
+/** Adiciona um item de checklist (entregável) a uma feature existente. */
+export async function addChecklistItem(
+  input: { featureCodigo: string; itemTexto: string; done?: boolean },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const feature = await tx.feature.findFirst({
+      where: { codigo: input.featureCodigo },
+      include: { checklist: { orderBy: { ordem: "desc" }, take: 1 } },
+    });
+    if (!feature)
+      throw new Error(
+        `Feature ${input.featureCodigo} não existe — crie com criar_feature antes de adicionar itens.`,
+      );
+
+    const ordem = (feature.checklist[0]?.ordem ?? -1) + 1;
+    const after = await tx.checklistItem.create({
+      data: {
+        texto: input.itemTexto,
+        done: input.done ?? false,
+        ordem,
+        featureId: feature.id,
+      },
+    });
+    await recordVersion(tx, {
+      entity: "ChecklistItem",
+      entityId: after.id,
+      operation: "create",
+      before: null,
+      after,
+      actor,
+      resumo: `Checklist "${input.itemTexto.slice(0, 40)}" adicionado a ${input.featureCodigo}`,
+    });
+    return after;
+  });
+}
+
+/** Edita metadados de uma feature existente (título, descrição, dependeLM, área, ou renomeia o código). */
+export async function editFeature(
+  input: {
+    codigo: string;
+    novoCodigo?: string;
+    titulo?: string;
+    descricao?: string;
+    dependeLM?: boolean;
+    areaDama?: string;
+  },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.feature.findFirst({ where: { codigo: input.codigo } });
+    if (!before)
+      throw new Error(
+        `Feature ${input.codigo} não existe — crie com criar_feature antes de editar.`,
+      );
+
+    if (input.novoCodigo && input.novoCodigo !== input.codigo) {
+      const clash = await tx.feature.findFirst({ where: { codigo: input.novoCodigo } });
+      if (clash)
+        throw new Error(`Já existe uma feature com o código ${input.novoCodigo}.`);
+    }
+
+    const after = await tx.feature.update({
+      where: { id: before.id },
+      data: {
+        codigo: input.novoCodigo ?? before.codigo,
+        titulo: input.titulo ?? before.titulo,
+        descricao: input.descricao ?? before.descricao,
+        dependeLM: input.dependeLM ?? before.dependeLM,
+        areaDama: input.areaDama ?? before.areaDama,
+      },
+    });
+    await recordVersion(tx, {
+      entity: "Feature",
+      entityId: after.id,
+      operation: "update",
+      before,
+      after,
+      actor,
+      resumo: `Feature ${input.codigo} editada${input.novoCodigo && input.novoCodigo !== input.codigo ? ` → ${input.novoCodigo}` : ""}`,
     });
     return after;
   });
@@ -290,13 +443,18 @@ export async function toggleChecklistItemByText(
     where: { codigo: input.featureCodigo },
     include: { checklist: true },
   });
-  if (!feature) throw new Error(`Feature não encontrada: ${input.featureCodigo}`);
+  if (!feature)
+    throw new Error(
+      `Feature ${input.featureCodigo} não existe — crie com criar_feature antes de marcar o checklist.`,
+    );
 
   const item = feature.checklist.find((c) =>
     c.texto.toLowerCase().includes(input.itemTexto.toLowerCase()),
   );
   if (!item)
-    throw new Error(`Item de checklist não encontrado: "${input.itemTexto}" em ${input.featureCodigo}`);
+    throw new Error(
+      `Item de checklist "${input.itemTexto}" não encontrado em ${input.featureCodigo} — adicione com adicionar_item_checklist.`,
+    );
 
   return toggleChecklistItem({ id: item.id, done: input.done }, actor);
 }

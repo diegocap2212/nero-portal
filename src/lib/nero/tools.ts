@@ -1,6 +1,9 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import {
+  addChecklistItem,
   addRisk,
+  createFeature,
+  editFeature,
   recordDecision,
   setFeatureStatus,
   setPhase,
@@ -116,6 +119,64 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "criar_feature",
+    description:
+      "Cria uma feature NOVA no roadmap, sob uma fase. Use quando uma feature inédita for proposta/decidida na conversa (o roadmap evolui). Para apenas mudar o status de uma feature que já existe, use definir_feature. Features novas nascem como premissa a confirmar com o LM.",
+    input_schema: {
+      type: "object",
+      properties: {
+        codigo: { type: "string", description: "Código da nova feature (ex.: 'F0.5')." },
+        titulo: { type: "string", description: "Título curto da feature." },
+        faseSlug: { type: "string", description: "Slug da fase onde criar (ex.: 'fase-0')." },
+        descricao: { type: "string", description: "Descrição opcional." },
+        dependeLM: { type: "boolean", description: "true se depende de algo do cliente LM." },
+        areaDama: { type: "string", description: "Área DAMA (ex.: 'Metadata Management')." },
+        status: {
+          type: "string",
+          enum: ["nao_iniciada", "em_andamento", "concluida", "bloqueada"],
+          description: "Status inicial (padrão: nao_iniciada).",
+        },
+        checklist: {
+          type: "array",
+          items: { type: "string" },
+          description: "Itens de checklist (entregáveis) iniciais, opcional.",
+        },
+      },
+      required: ["codigo", "titulo", "faseSlug"],
+    },
+  },
+  {
+    name: "editar_feature",
+    description:
+      "Edita metadados de uma feature existente: título, descrição, dependeLM, área DAMA, ou renomeia o código. Não muda status (use definir_feature).",
+    input_schema: {
+      type: "object",
+      properties: {
+        codigo: { type: "string", description: "Código atual da feature (ex.: 'F0.5')." },
+        novoCodigo: { type: "string", description: "Novo código, para renomear. Opcional." },
+        titulo: { type: "string" },
+        descricao: { type: "string" },
+        dependeLM: { type: "boolean" },
+        areaDama: { type: "string" },
+      },
+      required: ["codigo"],
+    },
+  },
+  {
+    name: "adicionar_item_checklist",
+    description:
+      "Adiciona um item de checklist (entregável) a uma feature existente. Use para detalhar o que precisa ser feito numa feature.",
+    input_schema: {
+      type: "object",
+      properties: {
+        featureCodigo: { type: "string", description: "Código da feature (ex.: 'F0.5')." },
+        itemTexto: { type: "string", description: "Texto do item/entregável." },
+        done: { type: "boolean", description: "Se já está concluído (padrão: false)." },
+      },
+      required: ["featureCodigo", "itemTexto"],
+    },
+  },
+  {
     name: "marcar_checklist",
     description:
       "Marca um item de checklist de uma feature como concluído ou pendente. Use quando um entregável específico for finalizado ou reaberto.",
@@ -198,6 +259,38 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           status: String(input.status),
         });
         return `Feature ${r.codigo} → ${r.status}.`;
+      }
+      case "criar_feature": {
+        const r = await createFeature({
+          codigo: String(input.codigo),
+          titulo: String(input.titulo),
+          faseSlug: String(input.faseSlug),
+          descricao: s(input.descricao),
+          dependeLM: input.dependeLM === undefined ? undefined : b(input.dependeLM),
+          areaDama: s(input.areaDama),
+          status: s(input.status),
+          checklist: Array.isArray(input.checklist) ? input.checklist.map(String) : undefined,
+        });
+        return `Feature ${r.codigo} criada: ${r.titulo}.`;
+      }
+      case "editar_feature": {
+        const r = await editFeature({
+          codigo: String(input.codigo),
+          novoCodigo: s(input.novoCodigo),
+          titulo: s(input.titulo),
+          descricao: s(input.descricao),
+          dependeLM: input.dependeLM === undefined ? undefined : b(input.dependeLM),
+          areaDama: s(input.areaDama),
+        });
+        return `Feature ${r.codigo} editada.`;
+      }
+      case "adicionar_item_checklist": {
+        const r = await addChecklistItem({
+          featureCodigo: String(input.featureCodigo),
+          itemTexto: String(input.itemTexto),
+          done: input.done === undefined ? undefined : b(input.done),
+        });
+        return `Item "${r.texto.slice(0, 50)}" adicionado.`;
       }
       case "marcar_checklist": {
         const r = await toggleChecklistItemByText({
