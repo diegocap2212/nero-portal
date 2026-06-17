@@ -16,6 +16,9 @@ async function main() {
     return;
   }
 
+  // NÃO incluir prisma.usageLog.deleteMany() aqui: UsageLog é dado operacional/
+  // financeiro (histórico de consumo), não fixture de seed. Apagá-lo aqui zerava
+  // o consumo a cada deploy que rodasse o seed.
   await prisma.$transaction([
     prisma.stateVersion.deleteMany(),
     prisma.stackItem.deleteMany(),
@@ -25,7 +28,6 @@ async function main() {
     prisma.phaseStatus.deleteMany(),
     prisma.stakeholder.deleteMany(),
     prisma.baselineMetric.deleteMany(),
-    prisma.usageLog.deleteMany(),
   ]);
 
   await prisma.stackItem.createMany({

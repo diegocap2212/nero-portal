@@ -78,7 +78,12 @@ export async function POST(req: NextRequest) {
           try {
             await prisma.usageLog.create({ data: { model: NERO_MODEL, ...usage, costUsd } });
           } catch (e) {
-            console.error("[Nero] falha ao registrar UsageLog:", e);
+            // Não derruba o chat por causa do log, mas a falha PRECISA ficar visível:
+            // se a persistência falhar, o medidor mostraria "zero" sem explicação.
+            const detail = e instanceof Error ? e.message : String(e);
+            console.error(
+              `[Nero] FALHA AO PERSISTIR UsageLog (consumo NÃO contabilizado) — model=${NERO_MODEL} custo=$${costUsd.toFixed(4)} tokens=${JSON.stringify(usage)} :: ${detail}`,
+            );
           }
           messages.push({ role: "assistant", content: final.content });
 
