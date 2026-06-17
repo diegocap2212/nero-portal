@@ -183,11 +183,23 @@ export async function addRisk(
     mitigacao?: string;
     dono?: string;
     faseSlug?: string;
+    featureCodigo?: string;
   },
   actor: Actor = "nero",
 ) {
   return prisma.$transaction(async (tx) => {
-    const faseId = await resolvePhaseId(tx, input.faseSlug);
+    // Se vier ligado a um epic, deriva a fase do próprio epic (mantém o risco visível na fase).
+    let featureId: string | null = null;
+    let faseId = (await resolvePhaseId(tx, input.faseSlug)) ?? null;
+    if (input.featureCodigo) {
+      const feature = await tx.feature.findFirst({ where: { codigo: input.featureCodigo } });
+      if (!feature)
+        throw new Error(
+          `Feature ${input.featureCodigo} não existe — crie com criar_feature ou omita featureCodigo para um risco da fase.`,
+        );
+      featureId = feature.id;
+      faseId = feature.faseId;
+    }
     const created = await tx.risk.create({
       data: {
         codigo: input.codigo,
@@ -195,7 +207,8 @@ export async function addRisk(
         severidade: input.severidade ?? "Média",
         mitigacao: input.mitigacao,
         dono: input.dono,
-        faseId: faseId ?? null,
+        faseId,
+        featureId,
       },
     });
     await recordVersion(tx, {

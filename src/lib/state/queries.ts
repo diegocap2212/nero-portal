@@ -233,6 +233,10 @@ export async function buildMemoriaContext(): Promise<string> {
   const note = (secao: string) =>
     notesRows.find((n) => n.secao === secao)?.conteudo ?? DEFAULT_NOTES[secao] ?? "—";
 
+  // Mapa featureId → código (ex.: "F0.3"), para anotar riscos ligados a um epic.
+  const featureCodeById = new Map<string, string>();
+  for (const p of roadmap) for (const f of p.features) featureCodeById.set(f.id, f.codigo);
+
   const now = new Date();
   const L: string[] = [];
   L.push("# ================= ESTADO ATUAL DO PROJETO =================");
@@ -301,9 +305,10 @@ export async function buildMemoriaContext(): Promise<string> {
   L.push("\n## 8. Riscos & blockers");
   const riscosAtivos = state.risks.filter((r) => r.ativo);
   if (riscosAtivos.length) {
-    L.push("| # | Risco/Blocker | Sev | Mitigação | Dono |", "|---|---|---|---|---|");
+    L.push("| # | Risco/Blocker | Epic | Sev | Mitigação | Dono |", "|---|---|---|---|---|---|");
     for (const r of riscosAtivos) {
-      L.push(`| ${r.codigo} | ${r.descricao} | ${r.severidade} | ${r.mitigacao ?? "—"} | ${r.dono ?? "—"} |`);
+      const epic = r.featureId ? featureCodeById.get(r.featureId) ?? "—" : "(fase)";
+      L.push(`| ${r.codigo} | ${r.descricao} | ${epic} | ${r.severidade} | ${r.mitigacao ?? "—"} | ${r.dono ?? "—"} |`);
     }
   } else L.push("_(nenhum risco ativo)_");
 

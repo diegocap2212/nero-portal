@@ -77,7 +77,8 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "adicionar_risco",
-    description: "Adiciona um risco/blocker ao projeto (seção 8 do 01).",
+    description:
+      "Adiciona um risco/blocker. Ligue-o ao epic afetado via featureCodigo (aparece dentro daquele card no roadmap). Se for um risco da fase inteira (não de um epic específico), use só faseSlug.",
     input_schema: {
       type: "object",
       properties: {
@@ -86,7 +87,11 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
         severidade: { type: "string", enum: ["Alta", "Média", "Baixa"] },
         mitigacao: { type: "string" },
         dono: { type: "string" },
-        faseSlug: { type: "string", description: "Slug da fase relacionada (ex.: 'fase-0'). Opcional." },
+        featureCodigo: {
+          type: "string",
+          description: "Código do epic/feature afetado (ex.: 'F0.3'). Preferível quando o risco é de um epic. Deriva a fase automaticamente.",
+        },
+        faseSlug: { type: "string", description: "Slug da fase (ex.: 'fase-0'), para risco da fase inteira. Ignorado se featureCodigo for dado." },
       },
       required: ["codigo", "descricao"],
     },
@@ -294,8 +299,9 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           mitigacao: s(input.mitigacao),
           dono: s(input.dono),
           faseSlug: s(input.faseSlug),
+          featureCodigo: s(input.featureCodigo),
         });
-        return `Risco ${r.codigo} adicionado.`;
+        return `Risco ${r.codigo} adicionado${r.featureId ? " (ligado a um epic)" : ""}.`;
       }
       case "definir_fase": {
         const r = await setPhase({

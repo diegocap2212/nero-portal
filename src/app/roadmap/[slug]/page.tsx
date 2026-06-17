@@ -29,6 +29,12 @@ const AGING_COLORS: Record<string, string> = {
   vermelho: "text-red-600 dark:text-red-400",
 };
 
+const SEV_CHIP: Record<string, string> = {
+  Alta: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  Média: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  Baixa: "bg-muted text-muted-foreground",
+};
+
 export default async function PhasePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const detail = await loadPhase(slug);
@@ -42,6 +48,14 @@ export default async function PhasePage({ params }: { params: Promise<{ slug: st
       : 0;
 
   const now = new Date();
+
+  // Riscos agrupados: por epic (mostrados dentro do card) vs. da fase inteira (faixa no header).
+  const risksByFeature: Record<string, typeof risks> = {};
+  const phaseRisks: typeof risks = [];
+  for (const r of risks) {
+    if (r.featureId) (risksByFeature[r.featureId] ??= []).push(r);
+    else phaseRisks.push(r);
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
@@ -104,11 +118,30 @@ export default async function PhasePage({ params }: { params: Promise<{ slug: st
         {phase.comentario && (
           <p className="mt-3 text-sm text-muted-foreground border-t pt-3">{phase.comentario}</p>
         )}
+
+        {/* Riscos da fase inteira (os de epic aparecem dentro de cada card) */}
+        {phaseRisks.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t pt-3">
+            <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Riscos da fase:
+            </span>
+            {phaseRisks.map((r) => (
+              <span
+                key={r.id}
+                title={r.mitigacao ? `${r.descricao} · Mitigação: ${r.mitigacao}` : r.descricao}
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${SEV_CHIP[r.severidade] ?? SEV_CHIP.Baixa}`}
+              >
+                {r.codigo} · {r.descricao} · {r.severidade}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Layout 2 colunas: painel 360° + Chat Nero */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
-        {/* Coluna esquerda: features + deps + riscos + decisões */}
+        {/* Coluna esquerda: epics (com riscos inline) + deps/decisões recolhidos */}
         <div className="space-y-6">
           {/* Features */}
           <section>
@@ -116,124 +149,95 @@ export default async function PhasePage({ params }: { params: Promise<{ slug: st
               <CheckSquare className="h-4 w-4" />
               Features & checklist
             </h2>
-            <FeatureChecklist features={phase.features} slug={slug} />
+            <FeatureChecklist features={phase.features} slug={slug} risksByFeature={risksByFeature} />
           </section>
 
-          {/* Dependências */}
-          {deps.length > 0 && (
-            <section>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                <AlertTriangle className="h-4 w-4" />
-                Dependências do LM
-              </h2>
-              <div className="space-y-2">
-                {deps.map((d) => {
-                  const dias = agingDias(d.solicitadoEm, now);
-                  const nivel = agingNivel(dias);
-                  return (
-                    <div key={d.id} className="rounded-xl border bg-card p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-muted-foreground">{d.codigo}</span>
-                            <span className="text-sm font-medium">{d.descricao}</span>
+          {/* Contexto secundário recolhido — não compete com os epics */}
+          {(deps.length > 0 || decisions.length > 0) && (
+            <div className="space-y-2">
+              {/* Dependências do LM (colapsável) */}
+              {deps.length > 0 && (
+                <details className="rounded-xl border bg-card">
+                  <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium select-none">
+                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                    Dependências do LM
+                    <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {deps.length}
+                    </span>
+                  </summary>
+                  <div className="space-y-2 border-t p-3">
+                    {deps.map((d) => {
+                      const dias = agingDias(d.solicitadoEm, now);
+                      const nivel = agingNivel(dias);
+                      return (
+                        <div key={d.id} className="rounded-lg border bg-background p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-muted-foreground">{d.codigo}</span>
+                                <span className="text-sm font-medium">{d.descricao}</span>
+                              </div>
+                              {d.trilhoParalelo && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  <span className="font-medium">Trilho:</span> {d.trilhoParalelo}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  d.status === "recebido"
+                                    ? "bg-green-100 text-green-700"
+                                    : d.status === "cancelado"
+                                    ? "bg-muted text-muted-foreground"
+                                    : "bg-yellow-100 text-yellow-700"
+                                }`}
+                              >
+                                {d.status}
+                              </span>
+                              {dias !== null && d.status === "aguardando" && (
+                                <span className={`text-xs font-medium ${AGING_COLORS[nivel]}`}>
+                                  {dias}d úteis
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {d.trilhoParalelo && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              <span className="font-medium">Trilho:</span> {d.trilhoParalelo}
-                            </p>
-                          )}
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              d.status === "recebido"
-                                ? "bg-green-100 text-green-700"
-                                : d.status === "cancelado"
-                                ? "bg-muted text-muted-foreground"
-                                : "bg-yellow-100 text-yellow-700"
-                            }`}
-                          >
-                            {d.status}
-                          </span>
-                          {dias !== null && d.status === "aguardando" && (
-                            <span className={`text-xs font-medium ${AGING_COLORS[nivel]}`}>
-                              {dias}d úteis
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                      );
+                    })}
+                  </div>
+                </details>
+              )}
 
-          {/* Riscos */}
-          {risks.length > 0 && (
-            <section>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                <ShieldAlert className="h-4 w-4" />
-                Riscos
-              </h2>
-              <div className="space-y-2">
-                {risks.map((r) => (
-                  <div key={r.id} className="rounded-xl border bg-card p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">{r.codigo}</span>
-                          <span className="text-sm font-medium">{r.descricao}</span>
-                        </div>
-                        {r.mitigacao && (
+              {/* Decisões desta fase (colapsável) */}
+              {decisions.length > 0 && (
+                <details className="rounded-xl border bg-card">
+                  <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium select-none">
+                    <Lightbulb className="h-4 w-4 text-muted-foreground" />
+                    Decisões desta fase
+                    <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {decisions.length}
+                    </span>
+                  </summary>
+                  <div className="space-y-2 border-t p-3">
+                    {decisions.map((d) => (
+                      <div key={d.id} className="rounded-lg border bg-background p-3">
+                        <p className="text-sm font-medium">{d.decisao}</p>
+                        {d.porque && (
                           <p className="mt-1 text-xs text-muted-foreground">
-                            <span className="font-medium">Mitigação:</span> {r.mitigacao}
+                            <span className="font-medium">Por quê:</span> {d.porque}
                           </p>
                         )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {new Date(d.data).toLocaleDateString("pt-BR")}
+                          {d.quem && ` · ${d.quem}`}
+                        </p>
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                          r.severidade === "Alta"
-                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : r.severidade === "Média"
-                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {r.severidade}
-                      </span>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Decisões */}
-          {decisions.length > 0 && (
-            <section>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                <Lightbulb className="h-4 w-4" />
-                Decisões desta fase
-              </h2>
-              <div className="space-y-2">
-                {decisions.map((d) => (
-                  <div key={d.id} className="rounded-xl border bg-card p-4">
-                    <p className="text-sm font-medium">{d.decisao}</p>
-                    {d.porque && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        <span className="font-medium">Por quê:</span> {d.porque}
-                      </p>
-                    )}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {new Date(d.data).toLocaleDateString("pt-BR")}
-                      {d.quem && ` · ${d.quem}`}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
+                </details>
+              )}
+            </div>
           )}
         </div>
 

@@ -65,6 +65,7 @@ model Risk {
   dono       String?
   ativo      Boolean  @default(true)
   faseId     String? // liga o risco a uma fase do roadmap (opcional)
+  featureId  String? // liga o risco a um epic/feature específico (opcional; FK solto, como faseId)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
