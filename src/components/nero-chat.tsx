@@ -7,8 +7,17 @@ import { ArrowRight, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { NeroLogo } from "@/components/nero-logo";
+import { setLocalStorage, useLocalStorage } from "@/lib/use-local-storage";
 
 type Message = { role: "user" | "assistant"; content: string };
+
+// Modelos liberados (espelha a allowlist de core.ts; definido aqui para não
+// arrastar o SDK da Anthropic pro bundle do cliente). Haiku 4.5 é o padrão.
+const MODELS = [
+  { id: "claude-haiku-4-5", label: "Haiku 4.5" },
+  { id: "claude-sonnet-4-6", label: "Sonnet 4.6" },
+] as const;
+const MODEL_STORAGE_KEY = "nero:model";
 
 const SUGGESTIONS = [
   "Qual é o estado atual do projeto e o que está bloqueado?",
@@ -24,6 +33,15 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Modelo escolhido pelo usuário, persistido por navegador. O servidor enxerga
+  // o padrão (Haiku); o valor salvo entra no cliente sem mismatch de hidratação.
+  const saved = useLocalStorage(MODEL_STORAGE_KEY, MODELS[0].id);
+  const model = MODELS.some((m) => m.id === saved) ? (saved as string) : MODELS[0].id;
+
+  function changeModel(id: string) {
+    setLocalStorage(MODEL_STORAGE_KEY, id);
+  }
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -42,7 +60,7 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
     scrollToBottom();
 
     try {
-      const body: Record<string, unknown> = { messages: next };
+      const body: Record<string, unknown> = { messages: next, model };
       if (scope?.faseSlug) body.faseSlug = scope.faseSlug;
 
       const res = await fetch("/api/chat", {
@@ -163,9 +181,29 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
               <Send className="h-4 w-4" />
             </Button>
           </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Enter envia · Shift+Enter quebra linha · Só metadados/schemas — nunca PII real (LGPD)
-          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>Modelo</span>
+              <select
+                value={model}
+                onChange={(e) => changeModel(e.target.value)}
+                className="rounded-md border bg-card px-1.5 py-0.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-brand/30"
+              >
+                {MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Enter envia · Shift+Enter quebra linha · Só metadados/schemas — nunca PII real (
+              <a href="/privacidade" className="underline hover:text-foreground">
+                LGPD
+              </a>
+              )
+            </p>
+          </div>
         </div>
       </div>
     </div>

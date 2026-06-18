@@ -13,9 +13,32 @@ function getClient(): Anthropic {
   return client;
 }
 
-export const NERO_MODEL = process.env.NERO_MODEL ?? "claude-sonnet-4-6";
+/**
+ * Modelos liberados no portal. Haiku 4.5 é o padrão (rápido e barato, cabe melhor
+ * no teto de 60s do deploy); Sonnet 4.6 é a alternativa para tarefas mais densas.
+ * IDs sem sufixo de data (aliases) — ambos existem na tabela de preços (pricing.ts).
+ */
+export const NERO_MODELS = {
+  haiku: "claude-haiku-4-5",
+  sonnet: "claude-sonnet-4-6",
+} as const;
 
-const MAX_TOKENS = 8000;
+export type NeroModelId = (typeof NERO_MODELS)[keyof typeof NERO_MODELS];
+
+export const DEFAULT_MODEL: NeroModelId =
+  (process.env.NERO_MODEL as NeroModelId) ?? NERO_MODELS.haiku;
+
+/** Valida o modelo pedido pela UI; cai no padrão se vier algo fora da allowlist. */
+export function resolveModel(req?: string): NeroModelId {
+  return req === NERO_MODELS.sonnet || req === NERO_MODELS.haiku
+    ? (req as NeroModelId)
+    : DEFAULT_MODEL;
+}
+
+/** @deprecated use DEFAULT_MODEL / resolveModel — mantido p/ compat. */
+export const NERO_MODEL = DEFAULT_MODEL;
+
+const MAX_TOKENS = 16000;
 
 export type NeroMessage = {
   role: "user" | "assistant";
@@ -50,7 +73,7 @@ function withHistoryCache(messages: Anthropic.MessageParam[]): Anthropic.Message
  */
 export async function streamTurn(
   messages: Anthropic.MessageParam[],
-  opts: { tools?: boolean; scopeContext?: string } = {},
+  opts: { tools?: boolean; scopeContext?: string; model?: string } = {},
 ) {
   const baseSystem = await buildSystem();
   const system: Anthropic.TextBlockParam[] = opts.scopeContext
@@ -58,7 +81,7 @@ export async function streamTurn(
     : baseSystem;
 
   return getClient().messages.stream({
-    model: NERO_MODEL,
+    model: resolveModel(opts.model),
     max_tokens: MAX_TOKENS,
     system,
     messages: withHistoryCache(messages),
