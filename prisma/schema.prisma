@@ -1,6 +1,6 @@
 // Estado vivo do projeto (o "01_MEMORIA" como dados estruturados).
-// SQLite local por enquanto (Docker não instalado); portável para Postgres+pgvector
-// no RAG/deploy. Sem enums (SQLite/Prisma não suporta) — usamos String + tipos em TS.
+// Postgres (Neon, integração com a Vercel) — ver datasource abaixo. Sem enums
+// (legado da fase SQLite) — usamos String + tipos em TS.
 
 generator client {
   provider = "prisma-client-js"
@@ -112,6 +112,10 @@ model ChecklistItem {
   ordem     Int     @default(0)
   featureId String
   feature   Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  // Impede checklist duplicado na mesma feature (rede final contra corrida de
+  // escritas concorrentes — vários usuários editando o estado ao mesmo tempo).
+  @@unique([featureId, texto])
 }
 
 /// Stakeholders & RACI (seção 3 do 01).

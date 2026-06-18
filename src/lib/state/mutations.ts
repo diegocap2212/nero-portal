@@ -359,6 +359,14 @@ export async function addChecklistItem(
         `Feature ${input.featureCodigo} não existe — crie com criar_feature antes de adicionar itens.`,
       );
 
+    // Idempotente: se já existe item com o mesmo texto nessa feature, devolve o
+    // existente em vez de duplicar (espelha o dup-check de createFeature). A
+    // constraint @@unique([featureId, texto]) é a rede final contra corrida.
+    const existing = await tx.checklistItem.findFirst({
+      where: { featureId: feature.id, texto: input.itemTexto },
+    });
+    if (existing) return existing;
+
     const ordem = (feature.checklist[0]?.ordem ?? -1) + 1;
     const after = await tx.checklistItem.create({
       data: {
@@ -552,24 +560,42 @@ export async function toggleChecklistItemByText(
   input: { featureCodigo: string; itemTexto: string; done: boolean },
   actor: Actor = "nero",
 ) {
-  const feature = await prisma.feature.findFirst({
-    where: { codigo: input.featureCodigo },
-    include: { checklist: true },
+  // Tudo numa transação só: busca + match + update + versão. Antes a busca ficava
+  // fora de trava, abrindo janela de corrida (o item podia mudar/sumir entre a
+  // leitura e a escrita) quando dois usuários mexiam no mesmo checklist.
+  return prisma.$transaction(async (tx) => {
+    const feature = await tx.feature.findFirst({
+      where: { codigo: input.featureCodigo },
+      include: { checklist: true },
+    });
+    if (!feature)
+      throw new Error(
+        `Feature ${input.featureCodigo} não existe — crie com criar_feature antes de marcar o checklist.`,
+      );
+
+    const item = feature.checklist.find((c) =>
+      c.texto.toLowerCase().includes(input.itemTexto.toLowerCase()),
+    );
+    if (!item)
+      throw new Error(
+        `Item de checklist "${input.itemTexto}" não encontrado em ${input.featureCodigo} — adicione com adicionar_item_checklist.`,
+      );
+
+    const after = await tx.checklistItem.update({
+      where: { id: item.id },
+      data: { done: input.done },
+    });
+    await recordVersion(tx, {
+      entity: "ChecklistItem",
+      entityId: after.id,
+      operation: "update",
+      before: item,
+      after,
+      actor,
+      resumo: `Checklist "${item.texto.slice(0, 40)}" → ${input.done ? "✓ concluído" : "pendente"}`,
+    });
+    return after;
   });
-  if (!feature)
-    throw new Error(
-      `Feature ${input.featureCodigo} não existe — crie com criar_feature antes de marcar o checklist.`,
-    );
-
-  const item = feature.checklist.find((c) =>
-    c.texto.toLowerCase().includes(input.itemTexto.toLowerCase()),
-  );
-  if (!item)
-    throw new Error(
-      `Item de checklist "${input.itemTexto}" não encontrado em ${input.featureCodigo} — adicione com adicionar_item_checklist.`,
-    );
-
-  return toggleChecklistItem({ id: item.id, done: input.done }, actor);
 }
 
 // ---- Histórico & undo ----
