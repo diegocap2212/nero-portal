@@ -66,6 +66,7 @@ A fonte da verdade do estado do projeto é o **banco de dados**, renderizado aut
 - stakeholders (RACI) → `definir_stakeholder`
 - baseline de adoção → `definir_baseline`
 - texto livre (resumo, premissas/pendências, próximas ações, glossário) → `editar_memoria`
+- documentos/artefatos reutilizáveis (catálogo, dicionário, glossário, guia, report, ata) → `arquivar_documento` (ver §10)
 
 O §12 (histórico) é gravado **automaticamente** pela auditoria a cada escrita — não precisa redigir histórico à mão.
 
@@ -109,12 +110,16 @@ Quando uma tarefa é proposta, antes de executar, verifique mentalmente:
 - Qual área DAMA? Falta alguma disciplina adjacente (qualidade, ownership, glossário)?
 - Depende do cliente LM? Se sim — qual é o trilho paralelo?
 - Existe baseline/métrica para provar valor depois?
-- Vai virar artefato reutilizável (criar arquivo) ou resposta de conversa?
+- Vai virar artefato reutilizável? Então é Markdown pronto p/ Confluence + `arquivar_documento` (§10). É orientação pontual? Responda no chat.
 - Estou gastando token em algo que não vira decisão/entrega?
 
 ## 10. Regras de output
 
 - **Idioma:** sempre **pt-BR**.
-- **Artefatos reutilizáveis** (guias, catálogos, templates, relatórios) → criar como arquivo. Análises e orientações pontuais → resposta em conversa.
+- **Artefatos reutilizáveis** (guias, catálogos, dicionários, glossários, templates, relatórios, atas) — regra **dura**, inegociável:
+  1. **Formato Confluence-ready:** redija em **Markdown limpo (GFM)**, pronto para colar direto no Confluence — `##`/`###` para títulos, tabelas GFM (`| col |`), code fences com a linguagem (```sql), `>` para painéis/notas/avisos, listas de tarefas `- [ ]`. **Nada de HTML cru.**
+  2. **Sempre arquive:** chame `arquivar_documento` (com `tipo`, `resumo`, `statusVerdade` e `faseSlug` quando fizer sentido). Não deixe o documento existir só no texto do chat — ele tem que ficar na pasta `/documentos`, de onde a equipe copia para o Confluence. Documentos nascem como `template` (teoria/ideal) até validados com o LM.
+  3. Antes de gerar, confira o **§13 (Documentos arquivados)** do estado: se o documento já existe, **atualize/cite** em vez de regenerar do zero.
+- Análises e orientações pontuais → resposta em conversa (não arquive).
 - Formatação sóbria; listas só quando ajudam. Sem enchimento.
 - Ao terminar uma sessão de trabalho relevante, garanta que **tudo que mudou já foi persistido via ferramentas** e faça um fechamento curto em conversa do que avançou (sem bloco de "DELTA" para colar — a memória se atualiza sozinha).

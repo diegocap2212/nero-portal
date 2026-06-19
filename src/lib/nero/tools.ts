@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   addChecklistItem,
   addRisk,
+  archiveDocument,
   createFeature,
   editFeature,
   MEMORIA_SECOES,
@@ -251,6 +252,35 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
       required: ["secao", "conteudo"],
     },
   },
+  {
+    name: "arquivar_documento",
+    description:
+      "Arquiva um DOCUMENTO/artefato reutilizável (catálogo, dicionário, glossário, guia, report, ata) na pasta do portal (/documentos). OBRIGATÓRIO para todo artefato reutilizável — não deixe o documento só no chat. O conteúdo DEVE ser Markdown limpo (GFM), pronto para colar no Confluence: títulos ## / ###, tabelas GFM, code fences com linguagem, > para painéis/notas, listas de tarefas - [ ]; sem HTML cru. Para análises/orientações pontuais, responda no chat (não arquive).",
+    input_schema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "Título do documento." },
+        tipo: {
+          type: "string",
+          enum: ["catalogo", "dicionario", "glossario", "report", "guia", "ata", "documento"],
+          description: "Tipo do artefato (padrão: documento).",
+        },
+        conteudo: {
+          type: "string",
+          description: "Conteúdo COMPLETO em Markdown GFM, pronto para colar no Confluence.",
+        },
+        resumo: { type: "string", description: "Resumo de 1 linha (aparece na lista)." },
+        statusVerdade: {
+          type: "string",
+          enum: [...STATUS_VERDADE],
+          description:
+            "template (ideal/teoria DAMA), assumido (premissa), confirmado (validado com o LM), lacuna. Padrão: template.",
+        },
+        faseSlug: { type: "string", description: "Slug da fase relacionada (ex.: 'fase-0'). Opcional." },
+      },
+      required: ["titulo", "conteudo"],
+    },
+  },
 ];
 
 type ToolInput = Record<string, unknown>;
@@ -384,6 +414,17 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           conteudo: String(input.conteudo),
         });
         return `Memória "${r.secao}" atualizada.`;
+      }
+      case "arquivar_documento": {
+        const r = await archiveDocument({
+          titulo: String(input.titulo),
+          conteudo: String(input.conteudo),
+          tipo: s(input.tipo),
+          resumo: s(input.resumo),
+          statusVerdade: s(input.statusVerdade),
+          faseSlug: s(input.faseSlug),
+        });
+        return `Documento "${r.titulo}" (${r.tipo}) arquivado em /documentos — pronto p/ copiar no Confluence.`;
       }
       default:
         return `Tool desconhecida: ${name}`;

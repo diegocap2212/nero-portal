@@ -149,6 +149,24 @@ model ProjectNote {
   updatedAt DateTime @updatedAt
 }
 
+/// Documentos/artefatos gerados pelo Nero e arquivados na "pasta" do portal (/documentos).
+/// conteudo é Markdown GFM, pronto para colar no Confluence. Como todo fato estruturado,
+/// carrega statusVerdade (teoria × realidade) — um doc nasce "template" até validado com o LM.
+/// Indexado no §13 do bloco de estado (buildMemoriaContext) para o Nero saber o que já arquivou.
+model Document {
+  id            String   @id @default(cuid())
+  titulo        String
+  tipo          String   @default("documento") // catalogo | dicionario | glossario | report | guia | ata | documento
+  conteudo      String // Markdown GFM, pronto p/ Confluence
+  resumo        String?
+  statusVerdade String   @default("template") // template | assumido | confirmado | lacuna
+  faseId        String? // liga a uma fase (opcional), como Decision/Risk
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
 /// Consumo da API por turno do chat — base do medidor de budget.
 model UsageLog {
   id              String   @id @default(cuid())
