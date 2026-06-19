@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, LayoutDashboard, Map } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Map, FileText, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BudgetMeter } from "@/components/budget-meter";
 import { NeroLogo } from "@/components/nero-logo";
@@ -11,6 +11,8 @@ const LINKS = [
   { href: "/", label: "Chat / Guia", icon: MessageSquare },
   { href: "/estado", label: "Estado vivo", icon: LayoutDashboard },
   { href: "/roadmap", label: "Roadmap", icon: Map },
+  { href: "/documentos", label: "Documentos", icon: FileText },
+  { href: "/registro", label: "Logs & Decisões", icon: ScrollText },
 ];
 
 export function TopNav() {

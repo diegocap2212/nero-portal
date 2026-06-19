@@ -19,6 +19,30 @@ export async function loadProjectState() {
 
 export type ProjectState = Awaited<ReturnType<typeof loadProjectState>>;
 
+// ---- Documentos arquivados (/documentos) ----
+
+/** Índice de documentos arquivados (sem conteúdo pesado) para a lista da aba. */
+export async function listDocuments() {
+  return prisma.document.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      titulo: true,
+      tipo: true,
+      resumo: true,
+      statusVerdade: true,
+      createdAt: true,
+    },
+  });
+}
+
+export type DocumentListItem = Awaited<ReturnType<typeof listDocuments>>[number];
+
+/** Documento completo (com conteúdo Markdown) para a página de detalhe. */
+export async function getDocument(id: string) {
+  return prisma.document.findUnique({ where: { id } });
+}
+
 // ---- Tipos para o roadmap ----
 
 type PhaseWithFeatures = Prisma.PhaseStatusGetPayload<{
@@ -219,7 +243,7 @@ const RAG_EMOJI: Record<string, string> = {
  * na sessão seguinte, sem passo humano.
  */
 export async function buildMemoriaContext(): Promise<string> {
-  const [state, roadmap, notesRows, versions] = await Promise.all([
+  const [state, roadmap, notesRows, versions, documents] = await Promise.all([
     loadProjectState(),
     loadRoadmap(),
     prisma.projectNote.findMany(),
@@ -227,6 +251,12 @@ export async function buildMemoriaContext(): Promise<string> {
       where: { desfeito: false },
       orderBy: { createdAt: "desc" },
       take: 12,
+    }),
+    // §13: só o índice (sem conteúdo) — o Nero precisa saber o que já arquivou
+    // sem reler documentos inteiros (disciplina de tokens, kit §6).
+    prisma.document.findMany({
+      orderBy: { createdAt: "desc" },
+      select: { titulo: true, tipo: true, statusVerdade: true, createdAt: true },
     }),
   ]);
 
@@ -334,6 +364,23 @@ export async function buildMemoriaContext(): Promise<string> {
       L.push(`- ${data} — ${v.resumo ?? `${v.operation} ${v.entity}`} _(${v.actor})_`);
     }
   } else L.push("_(sem alterações registradas)_");
+
+  // §13 Documentos arquivados — índice (conteúdo só em /documentos)
+  L.push("\n## 13. Documentos arquivados (pasta /documentos)");
+  if (documents.length) {
+    L.push("| Título | Tipo | Status de verdade | Arquivado em |", "|---|---|---|---|");
+    for (const d of documents) {
+      const data = d.createdAt.toISOString().slice(0, 10);
+      L.push(`| ${d.titulo} | ${d.tipo} | ${d.statusVerdade} | ${data} |`);
+    }
+    L.push(
+      "_Estes documentos já existem — não regenere do zero; cite/atualize o que já está arquivado. Para criar um novo artefato reutilizável, use a ferramenta `arquivar_documento`._",
+    );
+  } else {
+    L.push(
+      "_(nenhum documento arquivado ainda — ao gerar um artefato reutilizável, arquive-o com `arquivar_documento`)_",
+    );
+  }
 
   // Marcadores de verdade
   L.push(

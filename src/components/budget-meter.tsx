@@ -24,6 +24,9 @@ export function BudgetMeter() {
   }, []);
 
   useEffect(() => {
+    // load() é assíncrono — o setU só ocorre após o await do fetch, não de forma
+    // síncrona no corpo do efeito. Falso-positivo conhecido da regra para fetch-in-effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     const id = setInterval(load, 20000);
     const onUpdate = () => load();

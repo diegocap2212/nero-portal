@@ -21,6 +21,7 @@ const ENTITY_DATE_FIELDS: Record<string, string[]> = {
   Stakeholder: [],
   BaselineMetric: ["data"],
   ProjectNote: ["updatedAt"],
+  Document: ["createdAt", "updatedAt"],
 };
 
 function modelOf(tx: Tx, entity: string) {
@@ -35,6 +36,7 @@ function modelOf(tx: Tx, entity: string) {
     case "Stakeholder":   return tx.stakeholder;
     case "BaselineMetric": return tx.baselineMetric;
     case "ProjectNote":   return tx.projectNote;
+    case "Document":      return tx.document;
     default: throw new Error(`Entidade desconhecida: ${entity}`);
   }
 }
@@ -595,6 +597,68 @@ export async function toggleChecklistItemByText(
       resumo: `Checklist "${item.texto.slice(0, 40)}" → ${input.done ? "✓ concluído" : "pendente"}`,
     });
     return after;
+  });
+}
+
+// ---- Documentos arquivados (/documentos) ----
+
+/**
+ * Arquiva um documento gerado pelo Nero (Markdown GFM, pronto p/ Confluence). Segue o
+ * MESMO trilho do resto do estado: grava StateVersion → vira auditável e reversível, e
+ * aparece no §13 da memória (buildMemoriaContext), evitando que o Nero regenere/duplique.
+ */
+export async function archiveDocument(
+  input: {
+    titulo: string;
+    conteudo: string;
+    tipo?: string;
+    resumo?: string;
+    statusVerdade?: string;
+    faseSlug?: string;
+  },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const faseId = await resolvePhaseId(tx, input.faseSlug);
+    const created = await tx.document.create({
+      data: {
+        titulo: input.titulo,
+        conteudo: input.conteudo,
+        tipo: input.tipo ?? "documento",
+        resumo: input.resumo,
+        statusVerdade: input.statusVerdade ?? "template",
+        faseId: faseId ?? null,
+      },
+    });
+    await recordVersion(tx, {
+      entity: "Document",
+      entityId: created.id,
+      operation: "create",
+      before: null,
+      after: created,
+      actor,
+      resumo: `Documento "${input.titulo}" arquivado (${created.tipo})`,
+    });
+    return created;
+  });
+}
+
+/** Apaga um documento arquivado (ação do analista pela UI). Auditável + reversível. */
+export async function deleteDocument(input: { id: string }, actor: Actor = "analista") {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.document.findUnique({ where: { id: input.id } });
+    if (!before) throw new Error(`Documento não encontrado: ${input.id}`);
+    await tx.document.delete({ where: { id: input.id } });
+    await recordVersion(tx, {
+      entity: "Document",
+      entityId: before.id,
+      operation: "delete",
+      before,
+      after: null,
+      actor,
+      resumo: `Documento "${before.titulo}" removido`,
+    });
+    return before;
   });
 }
 

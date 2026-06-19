@@ -1,12 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ArrowRight, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { NeroLogo } from "@/components/nero-logo";
+import { Markdown } from "@/components/markdown";
 import { setLocalStorage, useLocalStorage } from "@/lib/use-local-storage";
 
 type Message = { role: "user" | "assistant"; content: string };
@@ -239,9 +238,7 @@ function MessageBubble({ message, loading }: { message: Message; loading: boolea
       <NeroLogo size={32} className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm bg-muted px-4 py-3 text-sm">
         {message.content ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-pre:bg-zinc-900 prose-pre:text-zinc-100">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-          </div>
+          <Markdown>{message.content}</Markdown>
         ) : loading ? (
           <ThinkingDots />
         ) : null}
