@@ -1,6 +1,6 @@
 import { loadRoadmap } from "@/lib/state/queries";
 import { RoadmapStepper } from "@/components/roadmap-stepper";
-import { Map } from "lucide-react";
+import { ProjetoTabs } from "@/components/projeto-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -12,26 +12,23 @@ export default async function RoadmapPage() {
   const activePhases = phases.filter((p) => p.rag !== "cinza").length;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8">
+    <div className="mx-auto w-full max-w-3xl px-4 py-6">
+      <ProjetoTabs />
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Map className="h-4 w-4" />
-            <span className="text-sm">Roadmap</span>
-          </div>
-          <h1 className="font-serif text-2xl font-semibold tracking-tight">Fases do projeto</h1>
+          <h1 className="font-serif text-xl font-semibold tracking-tight">Fases</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             24 semanas · 7 fases · clique numa fase para o painel 360° + Nero contextual
           </p>
         </div>
-        <div className="flex gap-4 text-right">
+        <div className="flex shrink-0 gap-4 text-right">
           <div>
-            <p className="text-2xl font-semibold">{activePhases}</p>
+            <p className="font-serif text-2xl font-semibold tabular-nums">{activePhases}</p>
             <p className="text-xs text-muted-foreground">fases ativas</p>
           </div>
           <div>
-            <p className="text-2xl font-semibold">{doneFeatures}/{totalFeatures}</p>
+            <p className="font-serif text-2xl font-semibold tabular-nums">{doneFeatures}/{totalFeatures}</p>
             <p className="text-xs text-muted-foreground">features</p>
           </div>
         </div>

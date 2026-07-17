@@ -40,47 +40,23 @@ export function BudgetMeter() {
   if (!u) return null;
 
   const tone = u.pct >= 90 ? "red" : u.pct >= 70 ? "amber" : "green";
-  const bar =
+  const dot =
     tone === "red" ? "bg-red-500" : tone === "amber" ? "bg-amber-500" : "bg-emerald-500";
-  const valueColor =
-    tone === "red"
-      ? "text-red-600 dark:text-red-400"
-      : tone === "amber"
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-emerald-600 dark:text-emerald-400";
 
   const resetDate = u.resetAt
     ? new Date(u.resetAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
     : "—";
-  const tooltipText = `Budget mensal · $${u.costUsd.toFixed(3)} de $${u.budgetUsd.toFixed(0)} · ${u.turns} turnos · zera em ${resetDate}`;
+  const tooltipText = `Consumo de API (interno) · $${u.costUsd.toFixed(3)} de $${u.budgetUsd.toFixed(0)} · ${u.turns} turnos · zera em ${resetDate}`;
 
+  // Indicador discreto: um ponto de saúde + valor sutil. Detalhe completo no tooltip.
   return (
-    <div className="flex flex-col gap-0.5" title={tooltipText} aria-label={tooltipText}>
-      {/* Rótulo "Budget mensal" */}
-      <span className="hidden text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60 sm:block">
-        Budget mensal
-      </span>
-
-      <div className="flex items-center gap-2">
-        {/* Valor gasto / orçamento */}
-        <span className={`hidden text-[11px] font-semibold tabular-nums sm:inline ${valueColor}`}>
-          ${u.costUsd.toFixed(2)}
-          <span className="font-normal text-muted-foreground"> /{u.budgetUsd.toFixed(0)}</span>
-        </span>
-
-        {/* Barra de progresso */}
-        <div className="h-1.5 w-14 overflow-hidden rounded-full bg-muted/80">
-          <div
-            className={`h-full rounded-full transition-all ${bar}`}
-            style={{ width: `${Math.max(3, u.pct)}%` }}
-          />
-        </div>
-
-        {/* "zera em X dias" — visível em telas largas */}
-        <span className="hidden text-[10px] text-muted-foreground lg:inline whitespace-nowrap">
-          {u.remainingDays === 0 ? "zera hoje" : `zera em ${u.remainingDays}d`}
-        </span>
-      </div>
+    <div
+      className="hidden shrink-0 items-center gap-1.5 text-muted-foreground sm:flex"
+      title={tooltipText}
+      aria-label={tooltipText}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+      <span className="text-[11px] tabular-nums">${u.costUsd.toFixed(2)}</span>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   isStatusVerdade,
 } from "@/lib/state/provenance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjetoTabs } from "@/components/projeto-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -110,12 +111,12 @@ export default async function EstadoPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-4 py-6">
+      <ProjetoTabs />
       <div className="mb-5">
-        <h1 className="font-serif text-xl font-semibold tracking-tight">Estado vivo do projeto</h1>
+        <h1 className="font-serif text-xl font-semibold tracking-tight">Visão geral</h1>
         <p className="text-sm text-muted-foreground">
-          Equivale ao <code className="rounded bg-muted px-1 py-0.5 text-xs">01_MEMORIA</code> — a
-          fonte da verdade. Aging calculado automaticamente; cada fato carrega seu status de verdade
-          (teoria × realidade).
+          A fonte da verdade do projeto — dependências do LM com aging, stack, riscos, maturidade
+          DAMA e auditoria. Cada fato carrega seu status de verdade (teoria × realidade).
         </p>
       </div>
 
