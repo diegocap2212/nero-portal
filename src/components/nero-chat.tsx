@@ -135,7 +135,7 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
             <div className="mx-auto mt-8 flex max-w-xl flex-col items-center gap-5 text-center">
               <NeroLogo size={72} className="drop-shadow-md" />
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold tracking-tight">Nero — Advisor de Dados</h2>
+                <h2 className="font-serif text-2xl font-semibold tracking-tight">Nero — Advisor de Dados</h2>
                 {isScoped ? (
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     Contexto:{" "}

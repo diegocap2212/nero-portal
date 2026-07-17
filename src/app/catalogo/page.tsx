@@ -38,7 +38,7 @@ export default async function CatalogoPage({
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-4 py-6">
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-tight">Catálogo vivo</h1>
+        <h1 className="font-serif text-xl font-semibold tracking-tight">Catálogo vivo</h1>
         <p className="text-sm text-muted-foreground">
           Cada tabela documentada no padrão Golden Example (kit 09) vira resposta permanente:
           onde acho o dado, o que significa cada campo, quem é o dono, é sensível? Documente

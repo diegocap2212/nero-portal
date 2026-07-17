@@ -18,7 +18,7 @@ export default async function AcademiaPage() {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-4 py-6">
       <div className="mb-5">
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+        <h1 className="flex items-center gap-2 font-serif text-xl font-semibold tracking-tight">
           <GraduationCap className="h-5 w-5 text-brand" />
           Academia
         </h1>

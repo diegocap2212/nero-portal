@@ -89,7 +89,7 @@ export default async function ReportDetailPage({
       {/* Cabeçalho executivo */}
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="font-serif text-xl font-semibold tracking-tight">
             Report Quinzenal #{report.numero} · Projeto Data Lake LM
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

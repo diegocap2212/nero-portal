@@ -111,7 +111,7 @@ export default async function EstadoPage() {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-4 py-6">
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-tight">Estado vivo do projeto</h1>
+        <h1 className="font-serif text-xl font-semibold tracking-tight">Estado vivo do projeto</h1>
         <p className="text-sm text-muted-foreground">
           Equivale ao <code className="rounded bg-muted px-1 py-0.5 text-xs">01_MEMORIA</code> — a
           fonte da verdade. Aging calculado automaticamente; cada fato carrega seu status de verdade

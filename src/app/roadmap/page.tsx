@@ -20,7 +20,7 @@ export default async function RoadmapPage() {
             <Map className="h-4 w-4" />
             <span className="text-sm">Roadmap</span>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Fases do projeto</h1>
+          <h1 className="font-serif text-2xl font-semibold tracking-tight">Fases do projeto</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             24 semanas · 7 fases · clique numa fase para o painel 360° + Nero contextual
           </p>

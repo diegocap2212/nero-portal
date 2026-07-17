@@ -32,7 +32,7 @@ export default async function ReportListPage() {
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-4 py-6">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Report Quinzenal</h1>
+          <h1 className="font-serif text-xl font-semibold tracking-tight">Report Quinzenal</h1>
           <p className="text-sm text-muted-foreground">
             Gerado do estado vivo do portal — não de slides. Cada report congela um
             snapshot auditável da quinzena (kit 04) com narrativa do Nero.

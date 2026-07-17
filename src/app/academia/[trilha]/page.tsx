@@ -37,7 +37,7 @@ export default async function TrilhaPage({
       </Link>
 
       <div className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight">{trilha.titulo}</h1>
+        <h1 className="font-serif text-xl font-semibold tracking-tight">{trilha.titulo}</h1>
         <p className="text-sm text-muted-foreground">
           {trilha.publico} · {trilha.duracao}
         </p>
@@ -63,7 +63,7 @@ export default async function TrilhaPage({
               <div className="text-xs font-medium text-muted-foreground">
                 Passo {step.ordem + 1} de {trilha.steps.length}
               </div>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight">{step.titulo}</h2>
+              <h2 className="mt-1 font-serif text-lg font-semibold tracking-tight">{step.titulo}</h2>
               {step.objetivo && (
                 <p className="mt-1.5 flex items-start gap-1.5 text-sm text-muted-foreground">
                   <Target className="mt-0.5 h-4 w-4 shrink-0 text-brand" />

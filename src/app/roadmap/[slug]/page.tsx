@@ -72,7 +72,7 @@ export default async function PhasePage({ params }: { params: Promise<{ slug: st
       <div className="mb-6 rounded-2xl border bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">{phase.fase}</h1>
+            <h1 className="font-serif text-xl font-semibold tracking-tight">{phase.fase}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               {phase.janela && <span>{phase.janela}</span>}
               {phase.gate && (

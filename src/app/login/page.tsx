@@ -17,7 +17,7 @@ export default async function LoginPage({
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <NeroLogo size={64} className="drop-shadow-md" />
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">Portal Nero</h1>
+            <h1 className="font-serif text-lg font-semibold tracking-tight">Portal Nero</h1>
             <p className="text-sm text-muted-foreground">Governança de Dados · LM</p>
           </div>
         </div>

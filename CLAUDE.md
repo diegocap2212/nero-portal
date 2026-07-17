@@ -54,6 +54,10 @@ Nunca tratar o template como verdade.
 - Opcionais: `NERO_MODEL`, `NERO_MONTHLY_BUDGET_USD`. (Futura: `VOYAGE_API_KEY`.)
 
 ## Convenções
+- **Design:** antes de gerar/alterar qualquer tela, ler `DESIGN.md` — o Nero adota
+  o design system **NEO / Locavia ("Venice by blite")**: accent verde `#2BE86B`
+  (só destaque), neutros quentes, tema claro padrão, Newsreader (títulos/ritual) +
+  Inter (UI) + JetBrains Mono (dados). Vereditos/status usam feedback, nunca o accent.
 - O Nero Core é o **único** lugar que fala com a Claude API. UI e features nunca
   chamam o modelo direto.
 - Antes de mexer na integração com a Claude API, consultar a skill `claude-api`

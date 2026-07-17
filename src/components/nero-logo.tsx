@@ -23,10 +23,10 @@ export function NeroLogo({
       style={{ display: "block" }}
     >
       <defs>
-        {/* Fundo da moeda: gradiente indigo profundo */}
+        {/* Fundo da moeda: esmeralda profunda — família do accent NEO (#2BE86B) */}
         <radialGradient id="nero-coin-bg" cx="44%" cy="38%" r="62%">
-          <stop offset="0%" stopColor="#4338ca" />
-          <stop offset="100%" stopColor="#1e1b4b" />
+          <stop offset="0%" stopColor="#159a52" />
+          <stop offset="100%" stopColor="#052e1a" />
         </radialGradient>
         {/* Brilho dourado para o anel */}
         <linearGradient id="nero-gold-ring" x1="20%" y1="20%" x2="80%" y2="80%">
