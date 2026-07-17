@@ -246,6 +246,25 @@ model DataField {
   @@unique([assetId, nome])
 }
 
+/// Tabela LEGADA preservada: "documentos gerados" de uma versão anterior da
+/// schema (removida do código quando o estado migrou p/ o banco, mas nunca dropada
+/// de produção — havia 10 documentos reais `confirmado`). Modelada aqui de propósito
+/// para que `prisma db push` NÃO a apague. Não é escrita pelas tools atuais (não
+/// entra em modelOf()/ENTITY_DATE_FIELDS). Candidata a virar seed da Academia/catálogo.
+model Document {
+  id            String   @id
+  titulo        String
+  tipo          String   @default("documento")
+  conteudo      String
+  resumo        String?
+  statusVerdade String   @default("template")
+  faseId        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@index([createdAt])
+}
+
 /// Histórico/versionamento das escritas no estado (para auditoria + undo).
 /// Toda alteração que o Nero (ou o analista) faz no estado grava uma versão.
 model StateVersion {
