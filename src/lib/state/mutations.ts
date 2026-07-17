@@ -101,6 +101,12 @@ export async function recordDecision(
   actor: Actor = "nero",
 ) {
   return prisma.$transaction(async (tx) => {
+    // Idempotente: se uma decisão com o MESMO texto já existe, devolve a existente
+    // em vez de duplicar (o log de decisões era append-only e acumulava repetições
+    // quando o Nero reprocessava o contexto).
+    const dup = await tx.decision.findFirst({ where: { decisao: input.decisao } });
+    if (dup) return dup;
+
     const faseId = await resolvePhaseId(tx, input.faseSlug);
     const created = await tx.decision.create({
       data: { decisao: input.decisao, porque: input.porque, quem: input.quem, faseId },
@@ -209,27 +215,32 @@ export async function addRisk(
       featureId = feature.id;
       faseId = feature.faseId;
     }
-    const created = await tx.risk.create({
-      data: {
-        codigo: input.codigo,
-        descricao: input.descricao,
-        severidade: input.severidade ?? "Média",
-        mitigacao: input.mitigacao,
-        dono: input.dono,
-        faseId,
-        featureId,
-      },
-    });
+    // Idempotente por código (espelha upsertDependency): se o risco já existe,
+    // atualiza em vez de criar de novo — evita R5/R6/... duplicados quando o Nero
+    // reprocessa o contexto em sessões diferentes.
+    const before = await tx.risk.findFirst({ where: { codigo: input.codigo } });
+    const data = {
+      descricao: input.descricao,
+      severidade: input.severidade ?? before?.severidade ?? "Média",
+      mitigacao: input.mitigacao ?? before?.mitigacao ?? null,
+      dono: input.dono ?? before?.dono ?? null,
+      faseId: faseId ?? before?.faseId ?? null,
+      featureId: featureId ?? before?.featureId ?? null,
+      ativo: true,
+    };
+    const after = before
+      ? await tx.risk.update({ where: { id: before.id }, data })
+      : await tx.risk.create({ data: { codigo: input.codigo, ...data } });
     await recordVersion(tx, {
       entity: "Risk",
-      entityId: created.id,
-      operation: "create",
-      before: null,
-      after: created,
+      entityId: after.id,
+      operation: before ? "update" : "create",
+      before,
+      after,
       actor,
       resumo: `Risco ${input.codigo}: ${input.descricao}`,
     });
-    return created;
+    return after;
   });
 }
 
