@@ -46,7 +46,9 @@ export function VersionHistory({ versions }: { versions: VersionRow[] }) {
               </span>{" "}
               · {v.resumo ?? "(sem resumo)"}
             </div>
-            <div className="text-xs text-muted-foreground">
+            {/* Data localizada difere entre fuso do servidor e do navegador —
+                suppress evita o mismatch de hidratação (React #418). */}
+            <div className="text-xs text-muted-foreground" suppressHydrationWarning>
               {new Date(v.createdAt).toLocaleString("pt-BR")}
             </div>
           </div>
