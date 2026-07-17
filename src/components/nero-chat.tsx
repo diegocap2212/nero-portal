@@ -26,7 +26,15 @@ const SUGGESTIONS = [
   "O que preciso confirmar no discovery antes de avançar para a Fase 3?",
 ];
 
-type ChatScope = { faseSlug: string; label?: string };
+type ChatScope = {
+  faseSlug?: string;
+  // Escopo de aula da Academia (modo tutor): trilha + passo atual.
+  trilhaSlug?: string;
+  stepSlug?: string;
+  label?: string;
+  hint?: string; // texto do estado vazio (substitui o padrão da fase)
+  suggestions?: string[]; // sugestões clicáveis específicas do escopo
+};
 
 export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,6 +70,10 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
     try {
       const body: Record<string, unknown> = { messages: next, model };
       if (scope?.faseSlug) body.faseSlug = scope.faseSlug;
+      if (scope?.trilhaSlug && scope?.stepSlug) {
+        body.trilhaSlug = scope.trilhaSlug;
+        body.stepSlug = scope.stepSlug;
+      }
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -112,7 +124,8 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
   }
 
   const empty = messages.length === 0;
-  const isScoped = !!scope?.faseSlug;
+  const isScoped = !!(scope?.faseSlug || scope?.trilhaSlug);
+  const scopedSuggestions = scope?.suggestions ?? [];
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -125,8 +138,13 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
                 <h2 className="text-2xl font-semibold tracking-tight">Nero — Advisor de Dados</h2>
                 {isScoped ? (
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Contexto: <span className="font-medium text-foreground">{scope.label ?? scope.faseSlug}</span>.
-                    Pergunte sobre esta fase, peça análise de riscos, ou solicite escritas no estado.
+                    Contexto:{" "}
+                    <span className="font-medium text-foreground">
+                      {scope?.label ?? scope?.faseSlug ?? scope?.trilhaSlug}
+                    </span>
+                    .{" "}
+                    {scope?.hint ??
+                      "Pergunte sobre esta fase, peça análise de riscos, ou solicite escritas no estado."}
                   </p>
                 ) : (
                   <p className="text-sm leading-relaxed text-muted-foreground">
@@ -136,6 +154,20 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
                   </p>
                 )}
               </div>
+              {isScoped && scopedSuggestions.length > 0 && (
+                <div className="grid w-full gap-2 text-left">
+                  {scopedSuggestions.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => send(s)}
+                      className="group flex items-center justify-between gap-2 rounded-xl border bg-card p-3 text-sm text-card-foreground transition-all hover:border-brand/40 hover:bg-accent"
+                    >
+                      <span>{s}</span>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+                    </button>
+                  ))}
+                </div>
+              )}
               {!isScoped && (
                 <div className="grid w-full gap-2 text-left sm:grid-cols-2">
                   {SUGGESTIONS.map((s) => (
@@ -168,7 +200,13 @@ export function NeroChat({ scope }: { scope?: ChatScope } = {}) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder={isScoped ? `Pergunte ao Nero sobre esta fase…` : "Pergunte ao Nero ou peça uma tarefa…"}
+              placeholder={
+                scope?.trilhaSlug
+                  ? "Converse com o tutor sobre este passo…"
+                  : isScoped
+                    ? "Pergunte ao Nero sobre esta fase…"
+                    : "Pergunte ao Nero ou peça uma tarefa…"
+              }
               rows={1}
               className="max-h-40 min-h-[40px] resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
             />

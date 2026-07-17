@@ -18,17 +18,29 @@ Nunca tratar o template como verdade.
 
 ## Arquitetura
 - **Nero Core** (`src/lib/nero/`) — único ponto de IA. Monta o contexto
-  (system prompt = kit `00` + estado `01` + refs `06`/`08`/`09`) e chama a Claude API.
-- **Kit de conhecimento** (`content/kit/00`–`09`) — o "cérebro" do Nero. Contexto
-  base enxuto; documentos pesados do LM entram sob demanda (RAG, fase futura).
-- **Frontend** (`src/app/`) — Next.js App Router, Tailwind + shadcn/ui.
+  (system prompt = kit `00` + base `02`–`09` [prefixo cacheado] + estado vivo do
+  banco via `buildMemoriaContext`) e chama a Claude API. Geração one-shot (report)
+  em `generate.ts`.
+- **Kit de conhecimento** (`content/kit/00`–`10`) — o "cérebro" do Nero. `01` é
+  doc histórico (estado migrou para o banco); `10` (modo tutor) NÃO entra no
+  prompt global — só no chat escopado da Academia. Documentos pesados do LM
+  entram sob demanda (RAG, fase futura).
+- **Estado vivo** (`src/lib/state/`) — TODA escrita passa por `mutations.ts`:
+  transação + `StateVersion` (auditoria/undo). Entidade nova exige registro em
+  `modelOf()` e `ENTITY_DATE_FIELDS` no mesmo commit, senão o undo quebra.
+- **Frontend** (`src/app/`) — Next.js App Router, Tailwind + shadcn/ui. Rotas:
+  `/` chat · `/estado` dashboard + radar DAMA · `/roadmap` · `/catalogo` (Golden
+  Example, % de completude calculado) · `/report` (quinzenal persistido, PDF via
+  CSS print, markdown p/ Confluence) · `/academia` (trilhas com chat tutor) ·
+  `/privacidade`.
 
 ## Stack
 - Next.js (App Router) + TypeScript · Tailwind v4 + shadcn/ui
-- `@anthropic-ai/sdk` — Claude. Padrão **`claude-sonnet-4-6`**; docs longos
-  **`claude-opus-4-8`**.
-- Banco (Fase 2+): a definir (SQLite local enquanto não há Docker; Postgres+pgvector
-  no deploy/RAG).
+- `@anthropic-ai/sdk` — Claude. Allowlist do portal: **`claude-haiku-4-5`**
+  (padrão) e **`claude-sonnet-4-6`** (ver `src/lib/nero/core.ts`).
+- Banco: **Postgres (Neon)** via Prisma. `vercel-build` roda `prisma db push`
+  no deploy — mudanças de schema só aditivas; backup antes (ver `DEPLOY.md`).
+  Nunca `db:reset` contra dados reais.
 
 ## Comandos
 - `npm run dev` — servidor de desenvolvimento (Turbopack)
@@ -37,7 +49,9 @@ Nunca tratar o template como verdade.
 
 ## Variáveis de ambiente (`.env.local`)
 - `ANTHROPIC_API_KEY` — obrigatória para o motor.
-- (futuras) `VOYAGE_API_KEY`, `DATABASE_URL`.
+- `POSTGRES_PRISMA_URL` (pooled) e `DATABASE_URL_UNPOOLED` (direta) — banco Neon.
+- `APP_PASSWORD` + `SESSION_SECRET` — login por senha única (cookie HMAC).
+- Opcionais: `NERO_MODEL`, `NERO_MONTHLY_BUDGET_USD`. (Futura: `VOYAGE_API_KEY`.)
 
 ## Convenções
 - O Nero Core é o **único** lugar que fala com a Claude API. UI e features nunca

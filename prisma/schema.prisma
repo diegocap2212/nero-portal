@@ -163,6 +163,89 @@ model UsageLog {
   @@index([createdAt])
 }
 
+/// Report quinzenal persistido (kit 04): snapshot congelado das seções
+/// estruturadas + narrativas geradas pelo Nero. Habilita histórico e
+/// comparação quinzena a quinzena.
+model Report {
+  id               String   @id @default(cuid())
+  numero           Int      @unique // Q1..Q12
+  periodoInicio    DateTime
+  periodoFim       DateTime
+  statusGeral      String   @default("amarelo") // verde | amarelo | vermelho
+  snapshot         String // JSON: dados estruturados das seções (entregas, deps, riscos, baseline...)
+  sumarioExecutivo String? // narrativa (Nero)
+  notaAdvisor      String? // narrativa (Nero)
+  saudeFrentes     String? // JSON [{frente, rag, comentario}]
+  geradoEm         DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+/// Avaliação de maturidade DAMA (kit 08 §1 + §5) — 1 registro por área da
+/// Roda DAMA (11 áreas, validadas em TS — src/lib/state/dama.ts).
+model MaturityAssessment {
+  id            String    @id @default(cuid())
+  area          String    @unique
+  nivelAtual    Int? // 1–5 (Inicial..Otimizado)
+  nivelMeta     Int? // 1–5
+  justificativa String?
+  statusVerdade String    @default("lacuna") // template | assumido | confirmado | lacuna
+  proveniencia  String? // fonte / quem confirmou / quando
+  avaliadoEm    DateTime?
+  ordem         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+/// Entrada de catálogo nível tabela — padrão Golden Example (kit 09 §A/C/D/E).
+model CatalogAsset {
+  id                  String      @id @default(cuid())
+  nome                String      @unique // ex.: gold.vendas.fato_pedidos
+  camada              String? // bronze | silver | gold | ...
+  dominio             String?
+  descricao           String?
+  owner               String?
+  steward             String?
+  grao                String? // grão da tabela (1 linha = ...)
+  atualizacao         String? // frequência/janela de atualização
+  volumeAprox         String?
+  sensibilidade       String? // publico | interno | pessoal | pessoal_sensivel (kit 06 §2.2)
+  baseLegal           String? // LGPD — obrigatória quando sensibilidade = pessoal*
+  sistemasOrigem      String?
+  tabelasRelacionadas String?
+  lineage             String? // v1: texto livre "origem → destino" (kit 09 §C)
+  notasQualidade      String? // kit 09 §E
+  validadoPor         String? // owner que validou a documentação
+  validadoEm          DateTime?
+  statusVerdade       String      @default("lacuna")
+  proveniencia        String?
+  ordem               Int         @default(0)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  campos              DataField[]
+}
+
+/// Dicionário de dados nível campo (kit 09 §B).
+model DataField {
+  id             String       @id @default(cuid())
+  nome           String
+  tipo           String?
+  descricao      String?
+  regra          String? // regra de negócio/cálculo
+  dominioValores String?
+  nullable       Boolean?
+  sensibilidade  String? // sensibilidade LGPD do campo
+  ordem          Int          @default(0)
+  assetId        String
+  asset          CatalogAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Impede campo duplicado no mesmo ativo (rede contra escrita concorrente,
+  // espelha ChecklistItem).
+  @@unique([assetId, nome])
+}
+
 /// Histórico/versionamento das escritas no estado (para auditoria + undo).
 /// Toda alteração que o Nero (ou o analista) faz no estado grava uma versão.
 model StateVersion {

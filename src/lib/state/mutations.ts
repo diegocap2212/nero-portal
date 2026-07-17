@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { DAMA_AREAS, isDamaArea, isNivelMaturidade } from "./dama";
 
 /**
  * Mutações do estado vivo. TODA alteração grava uma StateVersion (snapshot
@@ -21,6 +22,10 @@ const ENTITY_DATE_FIELDS: Record<string, string[]> = {
   Stakeholder: [],
   BaselineMetric: ["data"],
   ProjectNote: ["updatedAt"],
+  Report: ["periodoInicio", "periodoFim", "geradoEm", "createdAt", "updatedAt"],
+  MaturityAssessment: ["avaliadoEm", "createdAt", "updatedAt"],
+  CatalogAsset: ["validadoEm", "createdAt", "updatedAt"],
+  DataField: ["createdAt", "updatedAt"],
 };
 
 function modelOf(tx: Tx, entity: string) {
@@ -35,6 +40,10 @@ function modelOf(tx: Tx, entity: string) {
     case "Stakeholder":   return tx.stakeholder;
     case "BaselineMetric": return tx.baselineMetric;
     case "ProjectNote":   return tx.projectNote;
+    case "Report":        return tx.report;
+    case "MaturityAssessment": return tx.maturityAssessment;
+    case "CatalogAsset":  return tx.catalogAsset;
+    case "DataField":     return tx.dataField;
     default: throw new Error(`Entidade desconhecida: ${entity}`);
   }
 }
@@ -595,6 +604,260 @@ export async function toggleChecklistItemByText(
       resumo: `Checklist "${item.texto.slice(0, 40)}" → ${input.done ? "✓ concluído" : "pendente"}`,
     });
     return after;
+  });
+}
+
+/** Cria/atualiza a avaliação de maturidade DAMA de uma área. Chave: area. */
+export async function upsertMaturityAssessment(
+  input: {
+    area: string;
+    nivelAtual?: number;
+    nivelMeta?: number;
+    justificativa?: string;
+    statusVerdade?: string;
+    proveniencia?: string;
+  },
+  actor: Actor = "nero",
+) {
+  if (!isDamaArea(input.area))
+    throw new Error(
+      `Área DAMA inválida: "${input.area}". Áreas válidas: ${DAMA_AREAS.join(", ")}.`,
+    );
+  for (const n of [input.nivelAtual, input.nivelMeta]) {
+    if (n !== undefined && !isNivelMaturidade(n))
+      throw new Error(`Nível de maturidade inválido: ${n}. Use inteiros de 1 a 5.`);
+  }
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.maturityAssessment.findUnique({ where: { area: input.area } });
+    const ordem = before?.ordem ?? DAMA_AREAS.indexOf(input.area as (typeof DAMA_AREAS)[number]);
+    const data = {
+      nivelAtual: input.nivelAtual ?? before?.nivelAtual ?? null,
+      nivelMeta: input.nivelMeta ?? before?.nivelMeta ?? null,
+      justificativa: input.justificativa ?? before?.justificativa ?? null,
+      statusVerdade: input.statusVerdade ?? before?.statusVerdade ?? "lacuna",
+      proveniencia: input.proveniencia ?? before?.proveniencia ?? null,
+      avaliadoEm: input.nivelAtual !== undefined ? new Date() : before?.avaliadoEm ?? null,
+      ordem,
+    };
+    const after = before
+      ? await tx.maturityAssessment.update({ where: { id: before.id }, data })
+      : await tx.maturityAssessment.create({ data: { area: input.area, ...data } });
+    await recordVersion(tx, {
+      entity: "MaturityAssessment",
+      entityId: after.id,
+      operation: before ? "update" : "create",
+      before,
+      after,
+      actor,
+      resumo: `Maturidade "${input.area}" → nível ${after.nivelAtual ?? "?"}/meta ${after.nivelMeta ?? "?"} (${after.statusVerdade})`,
+    });
+    return after;
+  });
+}
+
+/**
+ * Cria/atualiza uma entrada do catálogo (nível tabela, padrão Golden Example).
+ * Chave: nome. Aceita o dicionário inline via `campos` (documenta a tabela
+ * inteira em 1 chamada — espelha o checklist inline de createFeature: uma
+ * StateVersion só, do ativo).
+ */
+export async function upsertCatalogAsset(
+  input: {
+    nome: string;
+    camada?: string;
+    dominio?: string;
+    descricao?: string;
+    owner?: string;
+    steward?: string;
+    grao?: string;
+    atualizacao?: string;
+    volumeAprox?: string;
+    sensibilidade?: string;
+    baseLegal?: string;
+    sistemasOrigem?: string;
+    tabelasRelacionadas?: string;
+    lineage?: string;
+    notasQualidade?: string;
+    validadoPor?: string;
+    validadoEm?: string;
+    statusVerdade?: string;
+    proveniencia?: string;
+    campos?: Array<{
+      nome: string;
+      tipo?: string;
+      descricao?: string;
+      regra?: string;
+      dominioValores?: string;
+      nullable?: boolean;
+      sensibilidade?: string;
+    }>;
+  },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.catalogAsset.findUnique({ where: { nome: input.nome } });
+    let ordem = before?.ordem;
+    if (ordem === undefined) {
+      const last = await tx.catalogAsset.findFirst({ orderBy: { ordem: "desc" } });
+      ordem = (last?.ordem ?? -1) + 1;
+    }
+    const data = {
+      camada: input.camada ?? before?.camada ?? null,
+      dominio: input.dominio ?? before?.dominio ?? null,
+      descricao: input.descricao ?? before?.descricao ?? null,
+      owner: input.owner ?? before?.owner ?? null,
+      steward: input.steward ?? before?.steward ?? null,
+      grao: input.grao ?? before?.grao ?? null,
+      atualizacao: input.atualizacao ?? before?.atualizacao ?? null,
+      volumeAprox: input.volumeAprox ?? before?.volumeAprox ?? null,
+      sensibilidade: input.sensibilidade ?? before?.sensibilidade ?? null,
+      baseLegal: input.baseLegal ?? before?.baseLegal ?? null,
+      sistemasOrigem: input.sistemasOrigem ?? before?.sistemasOrigem ?? null,
+      tabelasRelacionadas: input.tabelasRelacionadas ?? before?.tabelasRelacionadas ?? null,
+      lineage: input.lineage ?? before?.lineage ?? null,
+      notasQualidade: input.notasQualidade ?? before?.notasQualidade ?? null,
+      validadoPor: input.validadoPor ?? before?.validadoPor ?? null,
+      validadoEm: input.validadoEm ? new Date(input.validadoEm) : before?.validadoEm ?? null,
+      statusVerdade: input.statusVerdade ?? before?.statusVerdade ?? "lacuna",
+      proveniencia: input.proveniencia ?? before?.proveniencia ?? null,
+      ordem,
+    };
+    const after = before
+      ? await tx.catalogAsset.update({ where: { id: before.id }, data })
+      : await tx.catalogAsset.create({ data: { nome: input.nome, ...data } });
+
+    const campos = (input.campos ?? []).filter((c) => c.nome?.trim());
+    for (let i = 0; i < campos.length; i++) {
+      const c = campos[i];
+      const existing = await tx.dataField.findUnique({
+        where: { assetId_nome: { assetId: after.id, nome: c.nome } },
+      });
+      const fieldData = {
+        tipo: c.tipo ?? existing?.tipo ?? null,
+        descricao: c.descricao ?? existing?.descricao ?? null,
+        regra: c.regra ?? existing?.regra ?? null,
+        dominioValores: c.dominioValores ?? existing?.dominioValores ?? null,
+        nullable: c.nullable ?? existing?.nullable ?? null,
+        sensibilidade: c.sensibilidade ?? existing?.sensibilidade ?? null,
+        ordem: existing?.ordem ?? i,
+      };
+      if (existing) {
+        await tx.dataField.update({ where: { id: existing.id }, data: fieldData });
+      } else {
+        await tx.dataField.create({
+          data: { nome: c.nome, assetId: after.id, ...fieldData },
+        });
+      }
+    }
+
+    await recordVersion(tx, {
+      entity: "CatalogAsset",
+      entityId: after.id,
+      operation: before ? "update" : "create",
+      before,
+      after,
+      actor,
+      resumo: `Catálogo "${input.nome}" ${before ? "atualizado" : "documentado"}${campos.length ? ` (+${campos.length} campos)` : ""} — ${data.statusVerdade}`,
+    });
+    return after;
+  });
+}
+
+/** Cria/atualiza UM campo do dicionário de um ativo já catalogado. Chave: assetNome+nome. */
+export async function upsertDataField(
+  input: {
+    assetNome: string;
+    nome: string;
+    tipo?: string;
+    descricao?: string;
+    regra?: string;
+    dominioValores?: string;
+    nullable?: boolean;
+    sensibilidade?: string;
+  },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const asset = await tx.catalogAsset.findUnique({ where: { nome: input.assetNome } });
+    if (!asset)
+      throw new Error(
+        `Ativo "${input.assetNome}" não está no catálogo — documente a tabela antes com documentar_ativo.`,
+      );
+    const before = await tx.dataField.findUnique({
+      where: { assetId_nome: { assetId: asset.id, nome: input.nome } },
+    });
+    let ordem = before?.ordem;
+    if (ordem === undefined) {
+      const last = await tx.dataField.findFirst({
+        where: { assetId: asset.id },
+        orderBy: { ordem: "desc" },
+      });
+      ordem = (last?.ordem ?? -1) + 1;
+    }
+    const data = {
+      tipo: input.tipo ?? before?.tipo ?? null,
+      descricao: input.descricao ?? before?.descricao ?? null,
+      regra: input.regra ?? before?.regra ?? null,
+      dominioValores: input.dominioValores ?? before?.dominioValores ?? null,
+      nullable: input.nullable ?? before?.nullable ?? null,
+      sensibilidade: input.sensibilidade ?? before?.sensibilidade ?? null,
+      ordem,
+    };
+    const after = before
+      ? await tx.dataField.update({ where: { id: before.id }, data })
+      : await tx.dataField.create({ data: { nome: input.nome, assetId: asset.id, ...data } });
+    await recordVersion(tx, {
+      entity: "DataField",
+      entityId: after.id,
+      operation: before ? "update" : "create",
+      before,
+      after,
+      actor,
+      resumo: `Campo ${input.assetNome}.${input.nome} documentado`,
+    });
+    return after;
+  });
+}
+
+/** Persiste um report quinzenal gerado (snapshot congelado + narrativas do Nero). */
+export async function createReport(
+  input: {
+    statusGeral: string;
+    snapshot: unknown;
+    sumarioExecutivo?: string;
+    notaAdvisor?: string;
+    saudeFrentes?: unknown;
+  },
+  actor: Actor = "nero",
+) {
+  return prisma.$transaction(async (tx) => {
+    const prev = await tx.report.findFirst({ orderBy: { numero: "desc" } });
+    const numero = (prev?.numero ?? 0) + 1;
+    const periodoFim = new Date();
+    const periodoInicio =
+      prev?.periodoFim ?? new Date(periodoFim.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const created = await tx.report.create({
+      data: {
+        numero,
+        periodoInicio,
+        periodoFim,
+        statusGeral: input.statusGeral,
+        snapshot: JSON.stringify(input.snapshot),
+        sumarioExecutivo: input.sumarioExecutivo ?? null,
+        notaAdvisor: input.notaAdvisor ?? null,
+        saudeFrentes: input.saudeFrentes ? JSON.stringify(input.saudeFrentes) : null,
+      },
+    });
+    await recordVersion(tx, {
+      entity: "Report",
+      entityId: created.id,
+      operation: "create",
+      before: null,
+      after: created,
+      actor,
+      resumo: `Report Q${numero} gerado (${input.statusGeral})`,
+    });
+    return created;
   });
 }
 

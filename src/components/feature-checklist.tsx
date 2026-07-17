@@ -34,11 +34,9 @@ type ChecklistItemRow = Feature["checklist"][number];
 function ChecklistRow({
   item,
   slug,
-  featureCodigo,
 }: {
   item: ChecklistItemRow;
   slug: string;
-  featureCodigo: string;
 }) {
   const [optimisticDone, setOptimisticDone] = useOptimistic(item.done);
   const [, startTransition] = useTransition();
@@ -166,7 +164,7 @@ function FeatureCard({ feature, risks, slug, expanded, onToggle }: {
               <p className="mb-1 text-xs font-medium text-muted-foreground uppercase tracking-wide">Checklist</p>
               <div className="space-y-0.5">
                 {feature.checklist.map((item) => (
-                  <ChecklistRow key={item.id} item={item} slug={slug} featureCodigo={feature.codigo} />
+                  <ChecklistRow key={item.id} item={item} slug={slug} />
                 ))}
               </div>
             </>

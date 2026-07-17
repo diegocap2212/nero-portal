@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { agingDias } from "./aging";
+import { assetCompleteness } from "@/lib/catalog/completeness";
 import type { Prisma } from "@prisma/client";
 
 /** Carrega todo o estado vivo do projeto em paralelo (para o dashboard /estado). */
@@ -219,7 +220,7 @@ const RAG_EMOJI: Record<string, string> = {
  * na sessão seguinte, sem passo humano.
  */
 export async function buildMemoriaContext(): Promise<string> {
-  const [state, roadmap, notesRows, versions] = await Promise.all([
+  const [state, roadmap, notesRows, versions, maturity, catalog] = await Promise.all([
     loadProjectState(),
     loadRoadmap(),
     prisma.projectNote.findMany(),
@@ -227,6 +228,11 @@ export async function buildMemoriaContext(): Promise<string> {
       where: { desfeito: false },
       orderBy: { createdAt: "desc" },
       take: 12,
+    }),
+    prisma.maturityAssessment.findMany({ orderBy: { ordem: "asc" } }),
+    prisma.catalogAsset.findMany({
+      orderBy: { ordem: "asc" },
+      include: { campos: true },
     }),
   ]);
 
@@ -334,6 +340,28 @@ export async function buildMemoriaContext(): Promise<string> {
       L.push(`- ${data} — ${v.resumo ?? `${v.operation} ${v.entity}`} _(${v.actor})_`);
     }
   } else L.push("_(sem alterações registradas)_");
+
+  // §13 Maturidade DAMA — só quando houver avaliação real (disciplina de tokens).
+  const maturityAvaliada = maturity.filter((m) => m.nivelAtual !== null || m.nivelMeta !== null);
+  if (maturityAvaliada.length) {
+    L.push("\n## 13. Maturidade DAMA (radar)");
+    L.push("| Área | Atual | Meta | Status de verdade |", "|---|---|---|---|");
+    for (const m of maturityAvaliada) {
+      L.push(`| ${m.area} | ${m.nivelAtual ?? "—"} | ${m.nivelMeta ?? "—"} | ${m.statusVerdade} |`);
+    }
+  }
+
+  // §14 Catálogo vivo — 1 linha por ativo, compacto (o dicionário completo NÃO entra no prompt).
+  if (catalog.length) {
+    L.push("\n## 14. Catálogo vivo (resumo)");
+    L.push("| Ativo | Campos | Pronto | Sensibilidade | Status de verdade |", "|---|---|---|---|---|");
+    for (const a of catalog) {
+      const c = assetCompleteness(a, a.campos);
+      L.push(
+        `| ${a.nome} | ${a.campos.length} | ${c.pct}% | ${a.sensibilidade ?? "—"} | ${a.statusVerdade} |`,
+      );
+    }
+  }
 
   // Marcadores de verdade
   L.push(

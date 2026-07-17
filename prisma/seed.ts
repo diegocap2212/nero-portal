@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { DAMA_AREAS } from "../src/lib/state/dama";
 
 const prisma = new PrismaClient();
 
@@ -45,8 +46,26 @@ async function seedProjectNotes() {
   console.log(`ProjectNotes garantidas (${notes.length} seções base).`);
 }
 
+// 11 áreas da Roda DAMA como avaliações de maturidade "lacuna". Idempotente por
+// área: cria só se ausente, NUNCA sobrescreve avaliação existente.
+async function seedMaturityAreas() {
+  let created = 0;
+  for (let i = 0; i < DAMA_AREAS.length; i++) {
+    const area = DAMA_AREAS[i];
+    const exists = await prisma.maturityAssessment.findUnique({ where: { area } });
+    if (!exists) {
+      await prisma.maturityAssessment.create({
+        data: { area, statusVerdade: "lacuna", ordem: i },
+      });
+      created++;
+    }
+  }
+  console.log(`Maturidade DAMA garantida (${created} áreas criadas, ${DAMA_AREAS.length} total).`);
+}
+
 async function main() {
   await seedProjectNotes();
+  await seedMaturityAreas();
 
   // Idempotente: pula se já existem features (evita destruir dados reais).
   const featureCount = await prisma.feature.count();

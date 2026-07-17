@@ -24,11 +24,14 @@ export function BudgetMeter() {
   }, []);
 
   useEffect(() => {
-    load();
+    // Carga inicial agendada fora do corpo síncrono do effect (regra
+    // react-hooks/set-state-in-effect): o setState só acontece em callback.
+    const initial = setTimeout(load, 0);
     const id = setInterval(load, 20000);
     const onUpdate = () => load();
     window.addEventListener("nero:usage-updated", onUpdate);
     return () => {
+      clearTimeout(initial);
       clearInterval(id);
       window.removeEventListener("nero:usage-updated", onUpdate);
     };

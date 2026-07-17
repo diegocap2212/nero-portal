@@ -34,7 +34,7 @@ export function PiiConsentGate() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="pii-consent-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm print:hidden"
     >
       <div className="w-full max-w-lg rounded-2xl border bg-card p-6 text-card-foreground shadow-xl">
         <div className="flex items-start gap-3">

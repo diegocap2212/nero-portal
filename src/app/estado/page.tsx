@@ -10,7 +10,10 @@ import {
 } from "lucide-react";
 import { loadProjectState } from "@/lib/state/queries";
 import { listVersions } from "@/lib/state/mutations";
+import { prisma } from "@/lib/db";
 import { VersionHistory } from "@/components/version-history";
+import { DamaRadar } from "@/components/dama-radar";
+import { Radar } from "lucide-react";
 import { agingDias, agingNivel, type AgingNivel } from "@/lib/state/aging";
 import {
   STATUS_VERDADE_CLASS,
@@ -89,6 +92,10 @@ export default async function EstadoPage() {
   const { stack, dependencies, decisions, risks, phases, stakeholders, baseline } =
     await loadProjectState();
   const versions = await listVersions(20);
+  const maturity = await prisma.maturityAssessment.findMany({ orderBy: { ordem: "asc" } });
+  const maturityAvaliadas = maturity.filter(
+    (m) => m.nivelAtual !== null || m.nivelMeta !== null,
+  );
 
   // KPIs
   const activePhase =
@@ -230,6 +237,52 @@ export default async function EstadoPage() {
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+
+        {/* Radar de maturidade DAMA */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <SectionTitle icon={Radar}>
+              Maturidade DAMA · onde o LM está vs. para onde vamos
+            </SectionTitle>
+          </CardHeader>
+          <CardContent>
+            {maturityAvaliadas.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma área avaliada ainda — as 11 áreas da Roda DAMA estão como{" "}
+                <span className="font-medium">lacuna</span>. Peça ao Nero: &ldquo;avalie a
+                maturidade de Metadata&rdquo; para o radar ganhar forma.
+              </p>
+            ) : (
+              <div className="grid items-start gap-4 sm:grid-cols-2">
+                <DamaRadar
+                  points={maturity.map((m) => ({
+                    area: m.area,
+                    nivelAtual: m.nivelAtual,
+                    nivelMeta: m.nivelMeta,
+                  }))}
+                />
+                <div className="space-y-1.5">
+                  {maturity.map((m) => {
+                    const sv = isStatusVerdade(m.statusVerdade) ? m.statusVerdade : "lacuna";
+                    return (
+                      <div key={m.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="flex-1 truncate">{m.area}</span>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {m.nivelAtual ?? "—"} → {m.nivelMeta ?? "—"}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${STATUS_VERDADE_CLASS[sv]}`}
+                        >
+                          {STATUS_VERDADE_LABEL[sv]}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, LayoutDashboard, Map } from "lucide-react";
+import {
+  MessageSquare,
+  LayoutDashboard,
+  Map,
+  Database,
+  FileText,
+  GraduationCap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BudgetMeter } from "@/components/budget-meter";
 import { NeroLogo } from "@/components/nero-logo";
@@ -11,13 +18,16 @@ const LINKS = [
   { href: "/", label: "Chat / Guia", icon: MessageSquare },
   { href: "/estado", label: "Estado vivo", icon: LayoutDashboard },
   { href: "/roadmap", label: "Roadmap", icon: Map },
+  { href: "/catalogo", label: "Catálogo", icon: Database },
+  { href: "/report", label: "Report", icon: FileText },
+  { href: "/academia", label: "Academia", icon: GraduationCap },
 ];
 
 export function TopNav() {
   const pathname = usePathname();
   if (pathname === "/login") return null;
   return (
-    <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur print:hidden">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-2.5">
         <Link href="/" className="flex items-center gap-2.5">
           <NeroLogo size={34} />

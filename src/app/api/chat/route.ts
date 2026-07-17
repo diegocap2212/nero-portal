@@ -5,6 +5,7 @@ import { runNeroTool } from "@/lib/nero/tools";
 import { costOfTurn } from "@/lib/nero/pricing";
 import { prisma } from "@/lib/db";
 import { loadPhase, buildPhaseContext } from "@/lib/state/queries";
+import { loadTrilha, buildTutorContext } from "@/lib/academia/trilhas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,12 +18,16 @@ const MAX_TURNS = 8;
 export async function POST(req: NextRequest) {
   let incoming: NeroMessage[];
   let faseSlug: string | undefined;
+  let trilhaSlug: string | undefined;
+  let stepSlug: string | undefined;
   let model: string;
 
   try {
     const body = await req.json();
     incoming = body.messages;
     faseSlug = typeof body.faseSlug === "string" ? body.faseSlug : undefined;
+    trilhaSlug = typeof body.trilhaSlug === "string" ? body.trilhaSlug : undefined;
+    stepSlug = typeof body.stepSlug === "string" ? body.stepSlug : undefined;
     // Valida contra a allowlist; qualquer coisa fora cai no modelo padrão.
     model = resolveModel(typeof body.model === "string" ? body.model : undefined);
     if (!Array.isArray(incoming) || incoming.length === 0) {
@@ -47,6 +52,17 @@ export async function POST(req: NextRequest) {
       if (detail) scopeContext = buildPhaseContext(detail);
     } catch (e) {
       console.error("[Nero] falha ao carregar contexto da fase:", e);
+    }
+  }
+
+  // Chat tutor da Academia: injeta as regras didáticas (kit 10) + passo atual.
+  if (!scopeContext && trilhaSlug && stepSlug) {
+    try {
+      const trilha = await loadTrilha(trilhaSlug);
+      const step = trilha?.steps.find((s) => s.slug === stepSlug);
+      if (trilha && step) scopeContext = await buildTutorContext(trilha, step);
+    } catch (e) {
+      console.error("[Nero] falha ao carregar contexto da trilha:", e);
     }
   }
 

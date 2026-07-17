@@ -11,11 +11,16 @@ import {
   setStackItem,
   toggleChecklistItemByText,
   upsertBaselineMetric,
+  upsertCatalogAsset,
+  upsertDataField,
   upsertDependency,
+  upsertMaturityAssessment,
   upsertProjectNote,
   upsertStakeholder,
 } from "@/lib/state/mutations";
 import { STATUS_VERDADE } from "@/lib/state/provenance";
+import { DAMA_AREAS } from "@/lib/state/dama";
+import { SENSIBILIDADES } from "@/lib/catalog/sensibilidade";
 
 /**
  * Tools que o Nero pode usar para ESCREVER no estado vivo (01). Cada chamada
@@ -234,6 +239,105 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "avaliar_maturidade",
+    description:
+      "Registra/atualiza a avaliação de maturidade DAMA de UMA área da Roda (kit 08): nível atual e meta na escala 1–5 (Inicial..Otimizado), com status de verdade e proveniência. Use ao avaliar ou revisar a maturidade do LM numa área — alimenta o radar de maturidade do portal.",
+    input_schema: {
+      type: "object",
+      properties: {
+        area: {
+          type: "string",
+          enum: [...DAMA_AREAS],
+          description: "Área da Roda DAMA (nome exato).",
+        },
+        nivelAtual: { type: "integer", minimum: 1, maximum: 5, description: "Nível atual do LM (1–5)." },
+        nivelMeta: { type: "integer", minimum: 1, maximum: 5, description: "Nível-alvo (1–5). Meta padrão do projeto: 3 sustentável." },
+        justificativa: { type: "string", description: "Evidências que sustentam a avaliação." },
+        statusVerdade: {
+          type: "string",
+          enum: [...STATUS_VERDADE],
+          description: "assumido enquanto não validado com o LM; confirmado após validação.",
+        },
+        proveniencia: { type: "string", description: "Fonte / quem confirmou / quando." },
+      },
+      required: ["area"],
+    },
+  },
+  {
+    name: "documentar_ativo",
+    description:
+      "Cria/atualiza uma entrada do CATÁLOGO (nível tabela, padrão Golden Example do kit 09): owner, grão, sensibilidade LGPD, lineage, qualidade. Aceita o dicionário de campos inline via `campos` — use para documentar a tabela inteira em uma chamada. Para ajustar um campo isolado depois, use documentar_campo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nome: { type: "string", description: "Nome completo do ativo (ex.: 'gold.vendas.fato_pedidos')." },
+        camada: { type: "string", description: "Camada do lake (bronze/silver/gold/...)." },
+        dominio: { type: "string", description: "Domínio de negócio (ex.: 'Vendas')." },
+        descricao: { type: "string", description: "O que a tabela representa, em 1-2 frases." },
+        owner: { type: "string", description: "Owner de domínio (quem valida)." },
+        steward: { type: "string", description: "Steward/curador técnico." },
+        grao: { type: "string", description: "Grão: o que é 1 linha (ex.: '1 linha = 1 item de pedido')." },
+        atualizacao: { type: "string", description: "Frequência/janela de atualização (ex.: 'diária, D-1 às 6h')." },
+        volumeAprox: { type: "string", description: "Volume aproximado (linhas/tamanho)." },
+        sensibilidade: {
+          type: "string",
+          enum: [...SENSIBILIDADES],
+          description: "Classificação LGPD da tabela (kit 06 §2.2).",
+        },
+        baseLegal: { type: "string", description: "Base legal LGPD — obrigatória quando sensibilidade é pessoal/pessoal_sensivel." },
+        sistemasOrigem: { type: "string", description: "Sistemas de origem (ex.: 'ERP, e-commerce')." },
+        tabelasRelacionadas: { type: "string", description: "Tabelas relacionadas (joins usuais)." },
+        lineage: { type: "string", description: "Lineage em texto: origem → transformações → destino." },
+        notasQualidade: { type: "string", description: "Regras/notas de qualidade conhecidas." },
+        validadoPor: { type: "string", description: "Owner que validou a documentação." },
+        validadoEm: { type: "string", format: "date", description: "Data da validação (YYYY-MM-DD)." },
+        statusVerdade: {
+          type: "string",
+          enum: [...STATUS_VERDADE],
+          description: "template (exemplo), assumido (não validado), confirmado (validado pelo owner), lacuna.",
+        },
+        proveniencia: { type: "string", description: "Fonte / quem informou / quando." },
+        campos: {
+          type: "array",
+          description: "Dicionário de campos inline (opcional).",
+          items: {
+            type: "object",
+            properties: {
+              nome: { type: "string" },
+              tipo: { type: "string", description: "Tipo do dado (string, int, date...)." },
+              descricao: { type: "string" },
+              regra: { type: "string", description: "Regra de negócio/cálculo." },
+              dominioValores: { type: "string", description: "Domínio de valores (ex.: 'ATIVO|CANCELADO')." },
+              nullable: { type: "boolean" },
+              sensibilidade: { type: "string", enum: [...SENSIBILIDADES] },
+            },
+            required: ["nome"],
+          },
+        },
+      },
+      required: ["nome"],
+    },
+  },
+  {
+    name: "documentar_campo",
+    description:
+      "Cria/atualiza UM campo do dicionário de um ativo já catalogado (tipo, regra, domínio de valores, sensibilidade LGPD). O ativo precisa existir — senão, documente antes com documentar_ativo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        assetNome: { type: "string", description: "Nome do ativo no catálogo (ex.: 'gold.vendas.fato_pedidos')." },
+        nome: { type: "string", description: "Nome do campo." },
+        tipo: { type: "string" },
+        descricao: { type: "string" },
+        regra: { type: "string", description: "Regra de negócio/cálculo." },
+        dominioValores: { type: "string" },
+        nullable: { type: "boolean" },
+        sensibilidade: { type: "string", enum: [...SENSIBILIDADES] },
+      },
+      required: ["assetNome", "nome"],
+    },
+  },
+  {
     name: "editar_memoria",
     description:
       "Atualiza uma seção de TEXTO LIVRE da memória do projeto (markdown). Use para resumo, premissas/pendências, próximas ações de curto prazo e glossário. Para dados estruturados (decisões, stack, fases, features, riscos, dependências, stakeholders, baseline) use as ferramentas específicas, não esta.",
@@ -377,6 +481,68 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           fonte: s(input.fonte),
         });
         return `Baseline "${r.metrica}" salva.`;
+      }
+      case "avaliar_maturidade": {
+        const r = await upsertMaturityAssessment({
+          area: String(input.area),
+          nivelAtual: n(input.nivelAtual),
+          nivelMeta: n(input.nivelMeta),
+          justificativa: s(input.justificativa),
+          statusVerdade: s(input.statusVerdade),
+          proveniencia: s(input.proveniencia),
+        });
+        return `Maturidade "${r.area}" → atual ${r.nivelAtual ?? "?"}, meta ${r.nivelMeta ?? "?"} (${r.statusVerdade}).`;
+      }
+      case "documentar_ativo": {
+        const campos = Array.isArray(input.campos)
+          ? (input.campos as Array<Record<string, unknown>>)
+              .filter((c) => c && c.nome)
+              .map((c) => ({
+                nome: String(c.nome),
+                tipo: s(c.tipo),
+                descricao: s(c.descricao),
+                regra: s(c.regra),
+                dominioValores: s(c.dominioValores),
+                nullable: c.nullable === undefined ? undefined : b(c.nullable),
+                sensibilidade: s(c.sensibilidade),
+              }))
+          : undefined;
+        const r = await upsertCatalogAsset({
+          nome: String(input.nome),
+          camada: s(input.camada),
+          dominio: s(input.dominio),
+          descricao: s(input.descricao),
+          owner: s(input.owner),
+          steward: s(input.steward),
+          grao: s(input.grao),
+          atualizacao: s(input.atualizacao),
+          volumeAprox: s(input.volumeAprox),
+          sensibilidade: s(input.sensibilidade),
+          baseLegal: s(input.baseLegal),
+          sistemasOrigem: s(input.sistemasOrigem),
+          tabelasRelacionadas: s(input.tabelasRelacionadas),
+          lineage: s(input.lineage),
+          notasQualidade: s(input.notasQualidade),
+          validadoPor: s(input.validadoPor),
+          validadoEm: s(input.validadoEm),
+          statusVerdade: s(input.statusVerdade),
+          proveniencia: s(input.proveniencia),
+          campos,
+        });
+        return `Ativo "${r.nome}" documentado no catálogo (${r.statusVerdade})${campos?.length ? ` com ${campos.length} campos` : ""}.`;
+      }
+      case "documentar_campo": {
+        const r = await upsertDataField({
+          assetNome: String(input.assetNome),
+          nome: String(input.nome),
+          tipo: s(input.tipo),
+          descricao: s(input.descricao),
+          regra: s(input.regra),
+          dominioValores: s(input.dominioValores),
+          nullable: input.nullable === undefined ? undefined : b(input.nullable),
+          sensibilidade: s(input.sensibilidade),
+        });
+        return `Campo ${input.assetNome}.${r.nome} documentado.`;
       }
       case "editar_memoria": {
         const r = await upsertProjectNote({

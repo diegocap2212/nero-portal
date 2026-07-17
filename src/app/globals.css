@@ -141,3 +141,25 @@
     @apply font-sans;
   }
 }
+
+/* Exportação PDF do report via impressão do navegador (kit 04 em A4). */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  * {
+    /* Chips RAG, badges de aging e o radar precisam sair coloridos no PDF. */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  table,
+  figure,
+  blockquote {
+    break-inside: avoid;
+  }
+}
