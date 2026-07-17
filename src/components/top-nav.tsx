@@ -9,6 +9,7 @@ import {
   Database,
   FileText,
   GraduationCap,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BudgetMeter } from "@/components/budget-meter";
@@ -19,6 +20,7 @@ const LINKS = [
   { href: "/estado", label: "Estado vivo", icon: LayoutDashboard },
   { href: "/roadmap", label: "Roadmap", icon: Map },
   { href: "/catalogo", label: "Catálogo", icon: Database },
+  { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/report", label: "Report", icon: FileText },
   { href: "/academia", label: "Academia", icon: GraduationCap },
 ];
