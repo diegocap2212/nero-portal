@@ -23,8 +23,12 @@ Nunca tratar o template como verdade.
   em `generate.ts`.
 - **Kit de conhecimento** (`content/kit/00`–`10`) — o "cérebro" do Nero. `01` é
   doc histórico (estado migrou para o banco); `10` (modo tutor) NÃO entra no
-  prompt global — só no chat escopado da Academia. Documentos pesados do LM
-  entram sob demanda (RAG, fase futura).
+  prompt global — só no chat escopado da Academia.
+- **RAG da Biblioteca** (`src/lib/biblioteca/search.ts`) — o Nero lê a base de
+  conhecimento (tabela `Document`) sob demanda via tools `consultar_biblioteca`
+  (full-text `portuguese` do Postgres, sem embeddings) e `ler_documento`. Índice
+  compacto no §15 do `buildMemoriaContext`. Vetores (Voyage) ficam como opção
+  futura se o corpus exigir recall semântico.
 - **Estado vivo** (`src/lib/state/`) — TODA escrita passa por `mutations.ts`:
   transação + `StateVersion` (auditoria/undo). Entidade nova exige registro em
   `modelOf()` e `ENTITY_DATE_FIELDS` no mesmo commit, senão o undo quebra.

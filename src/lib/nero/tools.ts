@@ -20,6 +20,7 @@ import {
 } from "@/lib/state/mutations";
 import { STATUS_VERDADE } from "@/lib/state/provenance";
 import { DAMA_AREAS } from "@/lib/state/dama";
+import { searchBiblioteca, readDocumentForNero } from "@/lib/biblioteca/search";
 import { SENSIBILIDADES } from "@/lib/catalog/sensibilidade";
 
 /**
@@ -338,6 +339,31 @@ export const NERO_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "consultar_biblioteca",
+    description:
+      "Busca na Biblioteca — a base de conhecimento do portal (atas, planos, políticas LGPD, guias de catálogo/dicionário/acesso, mapeamentos de ownership que o Analista já produziu). Use SEMPRE que a pergunta puder ser respondida por esses documentos (processos, definições, políticas, decisões passadas) em vez de responder de memória. Retorna os documentos mais relevantes com um trecho e o id; use ler_documento para o conteúdo completo. Cite qual documento embasou a resposta.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Termos ou pergunta em linguagem natural (pt-BR)." },
+        limite: { type: "integer", description: "Máximo de documentos a retornar (padrão 4, máx 8)." },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "ler_documento",
+    description:
+      "Lê o conteúdo COMPLETO de um documento da Biblioteca — por id (preferível, vindo de consultar_biblioteca) ou por título. Use quando o trecho da busca não bastar para responder ou citar com precisão.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "id do documento (retornado por consultar_biblioteca)." },
+        titulo: { type: "string", description: "Título (ou parte dele), se não tiver o id." },
+      },
+    },
+  },
+  {
     name: "editar_memoria",
     description:
       "Atualiza uma seção de TEXTO LIVRE da memória do projeto (markdown). Use para resumo, premissas/pendências, próximas ações de curto prazo e glossário. Para dados estruturados (decisões, stack, fases, features, riscos, dependências, stakeholders, baseline) use as ferramentas específicas, não esta.",
@@ -543,6 +569,28 @@ export async function runNeroTool(name: string, input: ToolInput): Promise<strin
           sensibilidade: s(input.sensibilidade),
         });
         return `Campo ${input.assetNome}.${r.nome} documentado.`;
+      }
+      case "consultar_biblioteca": {
+        const hits = await searchBiblioteca(String(input.query), n(input.limite) ?? 4);
+        if (!hits.length)
+          return "Nenhum documento da Biblioteca casou com a busca. Responda com o que souber e sinalize que não há documento cobrindo isso.";
+        return (
+          `Documentos da Biblioteca relevantes (cite o(s) que usar):\n` +
+          hits
+            .map((h) => `- [${h.tipo} · ${h.statusVerdade}] ${h.titulo} (id: ${h.id})\n  «${h.trecho}»`)
+            .join("\n")
+        );
+      }
+      case "ler_documento": {
+        const doc = await readDocumentForNero({ id: s(input.id), titulo: s(input.titulo) });
+        if (!doc)
+          return "Documento não encontrado. Use consultar_biblioteca para localizar o id correto.";
+        const MAX = 8000;
+        const body =
+          doc.conteudo.length > MAX
+            ? doc.conteudo.slice(0, MAX) + "\n\n…(conteúdo truncado)"
+            : doc.conteudo;
+        return `# ${doc.titulo}\n(tipo: ${doc.tipo} · status de verdade: ${doc.statusVerdade})\n\n${body}`;
       }
       case "editar_memoria": {
         const r = await upsertProjectNote({

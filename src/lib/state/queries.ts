@@ -220,7 +220,7 @@ const RAG_EMOJI: Record<string, string> = {
  * na sessão seguinte, sem passo humano.
  */
 export async function buildMemoriaContext(): Promise<string> {
-  const [state, roadmap, notesRows, versions, maturity, catalog] = await Promise.all([
+  const [state, roadmap, notesRows, versions, maturity, catalog, biblioteca] = await Promise.all([
     loadProjectState(),
     loadRoadmap(),
     prisma.projectNote.findMany(),
@@ -233,6 +233,10 @@ export async function buildMemoriaContext(): Promise<string> {
     prisma.catalogAsset.findMany({
       orderBy: { ordem: "asc" },
       include: { campos: true },
+    }),
+    prisma.document.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { titulo: true, tipo: true },
     }),
   ]);
 
@@ -361,6 +365,18 @@ export async function buildMemoriaContext(): Promise<string> {
         `| ${a.nome} | ${a.campos.length} | ${c.pct}% | ${a.sensibilidade ?? "—"} | ${a.statusVerdade} |`,
       );
     }
+  }
+
+  // §15 Biblioteca — índice compacto (base de conhecimento consultável via tools).
+  if (biblioteca.length) {
+    L.push("\n## 15. Biblioteca (base de conhecimento do portal)");
+    L.push(
+      "Documentos que o Analista já produziu. Quando a pergunta puder ser respondida por eles " +
+        "(processos, definições, políticas, decisões passadas), **use `consultar_biblioteca` para " +
+        "buscar e `ler_documento` para o conteúdo completo — e cite o documento** em vez de responder " +
+        "de memória.",
+    );
+    for (const d of biblioteca) L.push(`- [${d.tipo}] ${d.titulo}`);
   }
 
   // Marcadores de verdade
